@@ -5,7 +5,7 @@ jdk:
 - oraclejdk8
 
 before_script:
-- cd io.opencaesar.ecore.bikeshed
+- cd io.opencaesar.ecore2bikeshed
 
 script:
   - ./gradlew build
