@@ -24,6 +24,13 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'application'
 
+group = 'io.opencaesar'
+version = '0.1.0'
+mainClassName = 'io.opencaesar.ecore2bikeshed.App'
+applicationName = 'ecore2bikeshed'
+ext.title = 'Ecore to Bikeshed'
+description = 'Bikeshed generator for Ecore'
+
 apply from: "${rootDir}/gradle/source-layout.gradle"
 apply from: "${rootDir}/gradle/maven-deployment.gradle"
 
@@ -50,10 +57,3 @@ dependencies {
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
 }
-
-group = 'io.opencaesar'
-version = '0.1.0'
-mainClassName = 'io.opencaesar.ecore2bikeshed.App'
-applicationName = 'ecore2bikeshed'
-ext.title = 'Ecore to Bikeshed'
-description = 'Bikeshed generator for Ecore'
