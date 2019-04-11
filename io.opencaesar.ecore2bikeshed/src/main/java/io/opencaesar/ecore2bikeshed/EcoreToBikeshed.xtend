@@ -2,6 +2,7 @@ package io.opencaesar.ecore2bikeshed
 
 import java.io.File
 import java.nio.file.Files
+import java.util.ArrayList
 import java.util.List
 import net.sourceforge.plantuml.FileFormat
 import net.sourceforge.plantuml.FileFormatOption
@@ -9,19 +10,24 @@ import net.sourceforge.plantuml.SourceStringReader
 import org.eclipse.emf.ecore.EClass
 import org.eclipse.emf.ecore.EClassifier
 import org.eclipse.emf.ecore.EEnum
+import org.eclipse.emf.ecore.EModelElement
 import org.eclipse.emf.ecore.ENamedElement
 import org.eclipse.emf.ecore.EPackage
-import org.eclipse.emf.ecore.EcorePackage
 import org.eclipse.emf.ecore.EReference
-import java.util.ArrayList
+import org.eclipse.emf.ecore.EcorePackage
 
 class EcoreToBikeshed {
 
-	static val OML = "http://opencaesar.io/Oml"
-
 	val EPackage ePackage 
 	val String outputPath
-	
+
+	static val BIKESHED_GROUPS = "https://tabatkins.github.io/bikeshed/groups"
+	static val BIKESHED = "https://tabatkins.github.io/bikeshed/"
+	static enum Annotation {
+		heading,
+		subsection
+	}
+		
 	new(EPackage ePackage, String outputPath) {
 		this.ePackage = ePackage
 		this.outputPath = outputPath
@@ -32,19 +38,20 @@ class EcoreToBikeshed {
 	}
 	
 	def generate(EPackage ePackage) '''
-		# Package «ePackage.name» # {#«ePackage.qualifiedName»}
+		# «ePackage.heading» # {#«ePackage.qualifiedName»}
 		«ePackage.documentation»
-		«val groups = new ArrayList(ePackage.EAnnotations.filter[source == OML].flatMap[details].map[key].toList)»
+		«val groups = ePackage.groups»
 		«groups.add(groups.length, null)»
 		«FOR group : groups»
-		«val classifiers = ePackage.EClassifiers.filter[EAnnotations.filter[source == OML].flatMap[details].findFirst[key == "subsection"]?.value == group].sortBy[name]»
+		«val classifiers = ePackage.EClassifiers.filter[getAnnotationValue(Annotation.subsection, null) == group].sortBy[name]»
 		«IF !classifiers.empty»
-		## «group.replaceAll("([^_])([A-Z])", "$1 $2")?:"Other"» ## {#group-«group?:"Other"»}
+		## «group?.replaceAll("([^_])([A-Z])", "$1 $2")?:"Other"» ## {#group-«group?:"Other"»}
 		«generateClassDiagram(group, ePackage, classifiers)»
 		«FOR eClassifier : classifiers»
 		«IF eClassifier instanceof EClass»
 		### <dfn>«IF eClassifier.abstract»*«ENDIF»«eClassifier.name»«IF eClassifier.abstract»*«ENDIF»</dfn> ### {#«eClassifier.qualifiedName»}
-			«eClassifier.documentation»		
+			«eClassifier.documentation»
+			
 			«val superClasses = eClassifier.ESuperTypes»
 			«IF !superClasses.empty»
 			*Super classes:*
@@ -67,20 +74,24 @@ class EcoreToBikeshed {
 			«ELSE»
 			* **«eAttribute.name»** : «eAttribute.EType.label»«IF eAttribute.isMany» [*]«ENDIF»
 			«ENDIF»
-			«eAttribute.documentation»
+			
+				«eAttribute.documentation»
 			«ENDFOR»
 			«FOR eReference : references»
 			* **«eReference.name»** : [=«eReference.EType.name»=]«IF eReference.isMany» [*]«ENDIF»
-			«eReference.documentation»			
+			
+				«eReference.documentation»			
 			«ENDFOR»
 			«ENDIF»
 		«ELSEIF eClassifier instanceof EEnum»
 		### <dfn>«eClassifier.name»</dfn> ### {#«eClassifier.qualifiedName»}
-			«eClassifier.documentation»		
+			«eClassifier.documentation»
+					
 			*Literals:*
 			«FOR eLiteral : eClassifier.ELiterals»
 			* **«eLiteral.name»**
-			«eLiteral.documentation»
+			
+				«eLiteral.documentation»
 			«ENDFOR»
 		«ENDIF»
 		«ENDFOR»
@@ -177,5 +188,25 @@ class EcoreToBikeshed {
       	svgFile.getParent.toFile.mkdirs()
       	val os = Files.newOutputStream(svgFile)
       	pumlReader.outputImage(os, new FileFormatOption(FileFormat.SVG))		
+	}
+
+	def getGroups(EPackage ePackage) {
+		new ArrayList(ePackage.EAnnotations.filter[source == BIKESHED_GROUPS].flatMap[details].map[key].toList)
+	}
+
+	def getHeading(ENamedElement element) {
+		element.getAnnotationValue(Annotation.heading,element.name)
+	}
+	
+	def isAnnotationSet(EModelElement element, Annotation annotation) {
+		getAnnotationValue(element, annotation) == "true"
+	}
+
+	def getAnnotationValue(EModelElement element, Annotation annotation, String defaultValue) {
+		getAnnotationValue(element, annotation) ?: defaultValue
+	}
+
+	def getAnnotationValue(EModelElement element, Annotation annotation) {
+		element.EAnnotations.findFirst[BIKESHED == source]?.details?.get(annotation.toString)
 	}
 }
