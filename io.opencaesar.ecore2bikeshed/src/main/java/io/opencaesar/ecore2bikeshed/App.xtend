@@ -104,7 +104,7 @@ class App {
 				val genModel = inputResource.contents.filter(GenModel).head
 				val genPackage = genModel.findGenPackage(ePackage)
 				val packageQName = genPackage.basePackage+'.'+ePackage.name
-				outputFiles.put(outputPath+'/'+packageQName+'.md', new EcoreToBikeshed(ePackage, outputPath).run)
+				outputFiles.put(outputPath+'/src-gen/'+packageQName+'.md', new EcoreToBikeshed(ePackage, outputPath).run)
 			}
 		}
 

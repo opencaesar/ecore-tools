@@ -13,7 +13,7 @@ import org.eclipse.emf.ecore.EEnum
 import org.eclipse.emf.ecore.EModelElement
 import org.eclipse.emf.ecore.ENamedElement
 import org.eclipse.emf.ecore.EPackage
-import org.eclipse.emf.ecore.EReference
+import org.eclipse.emf.ecore.EStructuralFeature
 import org.eclipse.emf.ecore.EcorePackage
 
 class EcoreToBikeshed {
@@ -70,15 +70,15 @@ class EcoreToBikeshed {
 			*Properties:*
 			«FOR eAttribute : attributes»
 			«IF eAttribute.EType instanceof EEnum»
-			* **«eAttribute.name»** : [=«eAttribute.EType.name»=]«IF eAttribute.isMany» [*]«ENDIF»
+			* **«eAttribute.name»** : [=«eAttribute.EType.name»=] [«eAttribute.multiplicity»]
 			«ELSE»
-			* **«eAttribute.name»** : «eAttribute.EType.label»«IF eAttribute.isMany» [*]«ENDIF»
+			* **«eAttribute.name»** : «eAttribute.EType.label» [«eAttribute.multiplicity»]
 			«ENDIF»
 			
 				«eAttribute.documentation»
 			«ENDFOR»
 			«FOR eReference : references»
-			* **«eReference.name»** : [=«eReference.EType.name»=]«IF eReference.isMany» [*]«ENDIF»
+			* **«eReference.name»** : [=«eReference.EType.name»=] [«eReference.multiplicity»]
 			
 				«eReference.documentation»			
 			«ENDFOR»
@@ -172,10 +172,10 @@ class EcoreToBikeshed {
 		@enduml
 	'''
 
-	def String getMultiplicity(EReference reference) {
-		if (reference.isMany) {
+	def String getMultiplicity(EStructuralFeature feature) {
+		if (feature.isMany) {
 			return "*"
-		} else if (reference.isRequired) {
+		} else if (feature.isRequired) {
 			return "1"
 		} else {
 			return "0..1"
