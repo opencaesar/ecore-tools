@@ -88,7 +88,7 @@ class App {
 		LOGGER.info("Output Folder= " + outputPath)
 
 		val inputFolder = new File(inputPath)
-		val inputFiles = collectOMLFiles(inputFolder)
+		val inputFiles = collectInputFiles(inputFolder)
 		
 		val injector = new XcoreStandaloneSetup().createInjectorAndDoEMFRegistration();
 		val inputResourceSet = injector.getInstance(XtextResourceSet);
@@ -129,19 +129,19 @@ class App {
 
 	// Utility methods
 
-	def Collection<File> collectOMLFiles(File directory) {
-		val omlFiles = new ArrayList<File>
+	def Collection<File> collectInputFiles(File directory) {
+		val files = new ArrayList<File>
 		for (file : directory.listFiles()) {
 			if (file.isFile) {
 				val ext = getFileExtension(file)
 				if (ext == "genmodel" || ext == "xcore") {
-					omlFiles.add(file)
+					files.add(file)
 				}
 			} else if (file.isDirectory) {
-				omlFiles.addAll(collectOMLFiles(file))
+				files.addAll(collectInputFiles(file))
 			}
 		}
-		return omlFiles
+		return files
 	}
 
 	private def String getFileExtension(File file) {
