@@ -1,4 +1,4 @@
-# OML Adapter for Ecore
+# Bikeshed Generator for Ecore
 
 [![Gitpod - Code Now](https://img.shields.io/badge/Gitpod-code%20now-blue.svg?longCache=true)](https://gitpod.io#https://github.com/opencaesar/ecore-bikeshed)
 [![Build Status](https://travis-ci.org/opencaesar/ecore-bikeshed.svg?branch=master)](https://travis-ci.org/opencaesar/ecore-bikeshed)
