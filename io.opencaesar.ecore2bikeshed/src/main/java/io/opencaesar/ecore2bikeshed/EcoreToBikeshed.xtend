@@ -15,10 +15,11 @@ import org.eclipse.emf.ecore.ENamedElement
 import org.eclipse.emf.ecore.EPackage
 import org.eclipse.emf.ecore.EStructuralFeature
 import org.eclipse.emf.ecore.EcorePackage
+import org.eclipse.emf.ecore.resource.Resource
 
 class EcoreToBikeshed {
 
-	val EPackage ePackage 
+	val Resource inputResource 
 	val String outputPath
 
 	static val BIKESHED_GROUPS = "https://tabatkins.github.io/bikeshed/groups"
@@ -28,12 +29,13 @@ class EcoreToBikeshed {
 		subsection
 	}
 		
-	new(EPackage ePackage, String outputPath) {
-		this.ePackage = ePackage
+	new(Resource inputResource, String outputPath) {
+		this.inputResource = inputResource
 		this.outputPath = outputPath
 	}
 	
 	def run() {
+		val ePackage = inputResource.contents.filter(EPackage).head
 		ePackage.generate.toString
 	}
 	

@@ -14,9 +14,7 @@ import java.util.HashMap
 import org.apache.log4j.AppenderSkeleton
 import org.apache.log4j.Level
 import org.apache.log4j.LogManager
-import org.eclipse.emf.codegen.ecore.genmodel.GenModel
 import org.eclipse.emf.common.util.URI
-import org.eclipse.emf.ecore.EPackage
 import org.eclipse.emf.ecore.xcore.XcoreStandaloneSetup
 import org.eclipse.xtext.resource.XtextResourceSet
 
@@ -100,11 +98,9 @@ class App {
 			val inputResource = inputResourceSet.getResource(inputURI, true)
 			if (inputResource !== null) {
 				LOGGER.info("Reading: "+inputURI)
-				val ePackage = inputResource.contents.filter(EPackage).head
-				val genModel = inputResource.contents.filter(GenModel).head
-				val genPackage = genModel.findGenPackage(ePackage)
-				val packageQName = genPackage.basePackage+'.'+ePackage.name
-				outputFiles.put(outputPath+'/src-gen/'+packageQName+'.md', new EcoreToBikeshed(ePackage, outputPath).run)
+				var relativePath = outputPath+'/src-gen/'+inputFolder.toURI().relativize(inputFile.toURI()).getPath()
+				val outputFile = new File(relativePath.substring(0, relativePath.lastIndexOf('.')+1)+'md')
+				outputFiles.put(outputFile.canonicalPath, new EcoreToBikeshed(inputResource, outputPath).run)
 			}
 		}
 
