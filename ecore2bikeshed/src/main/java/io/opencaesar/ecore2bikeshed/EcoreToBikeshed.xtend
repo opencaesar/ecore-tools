@@ -23,7 +23,7 @@ class EcoreToBikeshed {
 	val String outputPath
 
 	static val BIKESHED_GROUPS = "https://tabatkins.github.io/bikeshed/groups"
-	static val BIKESHED = "https://tabatkins.github.io/bikeshed/"
+	static val BIKESHED = "https://tabatkins.github.io/bikeshed"
 	static enum Annotation {
 		heading,
 		subsection
