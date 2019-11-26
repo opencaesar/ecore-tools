@@ -24,7 +24,7 @@ apply plugin: 'idea'
 apply plugin: 'application'
 
 group = 'io.opencaesar.bikeshed'
-version = '0.1.0'
+version = '0.2.0'
 mainClassName = 'io.opencaesar.ecore2bikeshed.App'
 applicationName = 'ecore2bikeshed'
 ext.title = 'Ecore to Bikeshed'

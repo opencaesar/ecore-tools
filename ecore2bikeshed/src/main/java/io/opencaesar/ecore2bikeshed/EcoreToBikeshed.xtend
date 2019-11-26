@@ -22,11 +22,10 @@ class EcoreToBikeshed {
 	val Resource inputResource 
 	val String outputPath
 
-	static val BIKESHED_GROUPS = "https://tabatkins.github.io/bikeshed/groups"
+	static val BIKESHED_HEADINGS = "https://tabatkins.github.io/bikeshed/headings"
 	static val BIKESHED = "https://tabatkins.github.io/bikeshed"
 	static enum Annotation {
-		heading,
-		subsection
+		heading
 	}
 		
 	new(Resource inputResource, String outputPath) {
@@ -42,13 +41,13 @@ class EcoreToBikeshed {
 	def generate(EPackage ePackage) '''
 		# «ePackage.heading» # {#«ePackage.qualifiedName»}
 		«ePackage.documentation»
-		«val groups = ePackage.groups»
-		«groups.add(groups.length, null)»
-		«FOR group : groups»
-		«val classifiers = ePackage.EClassifiers.filter[getAnnotationValue(Annotation.subsection, null) == group].sortBy[name]»
+		«val headings = ePackage.headings»
+		«headings.add(headings.length, null)»
+		«FOR heading : headings»
+		«val classifiers = ePackage.EClassifiers.filter[c|c.heading == heading].sortBy[name]»
 		«IF !classifiers.empty»
-		## «group?.replaceAll("([^_])([A-Z])", "$1 $2")?:"Other"» ## {#group-«group?:"Other"»}
-		«generateClassDiagram(group, ePackage, classifiers)»
+		## «heading?.replaceAll("([^_])([A-Z])", "$1 $2")?:"Other"» ## {#group-«heading?:"Other"»}
+		«generateClassDiagram(heading, ePackage, classifiers)»
 		«FOR eClassifier : classifiers»
 		«IF eClassifier instanceof EClass»
 		### <dfn>«IF eClassifier.abstract»*«ENDIF»«eClassifier.name»«IF eClassifier.abstract»*«ENDIF»</dfn> ### {#«eClassifier.qualifiedName»}
@@ -192,8 +191,8 @@ class EcoreToBikeshed {
       	pumlReader.outputImage(os, new FileFormatOption(FileFormat.SVG))		
 	}
 
-	def getGroups(EPackage ePackage) {
-		new ArrayList(ePackage.EAnnotations.filter[source == BIKESHED_GROUPS].flatMap[details].map[key].toList)
+	def getHeadings(EPackage ePackage) {
+		new ArrayList(ePackage.EAnnotations.filter[source == BIKESHED_HEADINGS].flatMap[details].map[key].toList)
 	}
 
 	def getHeading(ENamedElement element) {
@@ -211,4 +210,5 @@ class EcoreToBikeshed {
 	def getAnnotationValue(EModelElement element, Annotation annotation) {
 		element.EAnnotations.findFirst[BIKESHED == source]?.details?.get(annotation.toString)
 	}
+
 }

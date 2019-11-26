@@ -91,7 +91,7 @@ class App {
 		val injector = new XcoreStandaloneSetup().createInjectorAndDoEMFRegistration();
 		val inputResourceSet = injector.getInstance(XtextResourceSet);
 
-		val outputFiles = new HashMap<String, String>
+		val outputFiles = new HashMap<File, String>
 
 		for (inputFile : inputFiles) {
 			val inputURI = URI.createFileURI(inputFile.absolutePath)
@@ -100,11 +100,13 @@ class App {
 				LOGGER.info("Reading: "+inputURI)
 				var relativePath = outputPath+'/src-gen/'+inputFolder.toURI().relativize(inputFile.toURI()).getPath()
 				val outputFile = new File(relativePath.substring(0, relativePath.lastIndexOf('.')+1)+'md')
-				outputFiles.put(outputFile.canonicalPath, new EcoreToBikeshed(inputResource, outputPath).run)
+				outputFiles.put(outputFile, new EcoreToBikeshed(inputResource, outputPath).run)
 			}
 		}
 
-		outputFiles.forEach[filePath, result|
+		outputFiles.forEach[outputFile, result|
+			outputFile.parentFile.mkdirs
+			val filePath = outputFile.canonicalPath
 			val out = new BufferedWriter(new FileWriter(filePath))
 			try {
 				LOGGER.info("Saving: "+filePath)
