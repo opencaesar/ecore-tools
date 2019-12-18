@@ -31,7 +31,6 @@ class App {
 	@Parameter(
 		names=#["--output", "-o"], 
 		description="Location of the Bikeshed output folder", 
-		validateWith=FolderPath, 
 		order=2
 	)
 	package String outputPath = "."
@@ -152,7 +151,7 @@ class App {
 
 	static class FolderPath implements IParameterValidator {
 		override validate(String name, String value) throws ParameterException {
-			val directory = new File(value)
+			val directory = new File(value).absoluteFile
 			if (!directory.isDirectory) {
 				throw new ParameterException("Parameter " + name + " should be a valid folder path");
 			}

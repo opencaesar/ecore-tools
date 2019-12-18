@@ -16,12 +16,14 @@ repositories {
 	jcenter()
 }
 
-apply plugin: 'com.jfrog.bintray'
+
 apply plugin: 'java'
 apply plugin: 'org.xtext.xtend'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'application'
+apply plugin: 'java-gradle-plugin'
+apply plugin: 'com.jfrog.bintray'
 
 group = 'io.opencaesar.bikeshed'
 version = '0.2.0'
@@ -57,3 +59,13 @@ dependencies {
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
 }
+
+gradlePlugin {
+    plugins {
+        ecore2BikeshedPlugin {
+            id = 'io.opencaesar.ecore2bikeshed'
+            implementationClass = 'io.opencaesar.ecore2bikeshed.GradlePlugin'
+        }
+    }
+}
+
