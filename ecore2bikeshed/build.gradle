@@ -26,7 +26,7 @@ apply plugin: 'java-gradle-plugin'
 apply plugin: 'com.jfrog.bintray'
 
 group = 'io.opencaesar.bikeshed'
-version = '0.3.0'
+version = '0.4.0'
 mainClassName = 'io.opencaesar.ecore2bikeshed.App'
 applicationName = 'ecore2bikeshed'
 ext.title = 'Ecore to Bikeshed'

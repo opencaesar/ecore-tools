@@ -1,9 +1,11 @@
 package io.opencaesar.ecore2bikeshed
 
-import java.io.File
 import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.ArrayList
 import java.util.List
+import java.util.regex.Pattern
+import java.util.stream.Collectors
 import net.sourceforge.plantuml.FileFormat
 import net.sourceforge.plantuml.FileFormatOption
 import net.sourceforge.plantuml.SourceStringReader
@@ -38,19 +40,21 @@ class EcoreToBikeshed {
 		ePackage.generate.toString
 	}
 	
-	def generate(EPackage ePackage) '''
-		# «ePackage.heading» # {#«ePackage.qualifiedName»}
+	protected def generate(EPackage ePackage) '''
+		# «ePackage.heading» # {#«ePackage.heading.replaceAll(' ', '')»}
 		«ePackage.documentation»
+		
 		«val headings = ePackage.headings»
 		«headings.add(headings.length, null)»
 		«FOR heading : headings»
 		«val classifiers = ePackage.EClassifiers.filter[c|c.heading == heading].sortBy[name]»
 		«IF !classifiers.empty»
-		## «heading?.replaceAll("([^_])([A-Z])", "$1 $2")?:"Other"» ## {#group-«heading?:"Other"»}
+		## «heading?.replaceAll("([^_])([A-Z])", "$1 $2")?:"Other"» ## {#«heading?:"Other"»}
 		«generateClassDiagram(heading, ePackage, classifiers)»
+		
 		«FOR eClassifier : classifiers»
 		«IF eClassifier instanceof EClass»
-		### <dfn>«IF eClassifier.abstract»*«ENDIF»«eClassifier.name»«IF eClassifier.abstract»*«ENDIF»</dfn> ### {#«eClassifier.qualifiedName»}
+		### <dfn>«IF eClassifier.abstract»*«ENDIF»«eClassifier.name»«IF eClassifier.abstract»*«ENDIF»</dfn> ### {#«eClassifier.name»}
 			«eClassifier.documentation»
 			
 			«val superClasses = eClassifier.ESuperTypes»
@@ -85,7 +89,7 @@ class EcoreToBikeshed {
 			«ENDFOR»
 			«ENDIF»
 		«ELSEIF eClassifier instanceof EEnum»
-		### <dfn>«eClassifier.name»</dfn> ### {#«eClassifier.qualifiedName»}
+		### <dfn>«eClassifier.name»</dfn> ### {#«eClassifier.name»}
 			«eClassifier.documentation»
 					
 			*Literals:*
@@ -95,21 +99,23 @@ class EcoreToBikeshed {
 				«eLiteral.documentation»
 			«ENDFOR»
 		«ENDIF»
+		
 		«ENDFOR»
 		«ENDIF»
+		
 		«ENDFOR»
 	'''
 	
-	def String qualifiedName(ENamedElement element) {
+	protected def String qualifiedName(ENamedElement element) {
 		val parent = element.eContainer
 		return (if (parent instanceof ENamedElement) qualifiedName(parent)+'-' else '') + element.name
 	}
 	
-	def String documentation(ENamedElement element) {
+	protected  def String documentation(ENamedElement element) {
 		element.EAnnotations.findFirst[source == "http://www.eclipse.org/emf/2002/GenModel"]?.details?.get("documentation")?:""
 	}
 	
-	def String getLabel(EClassifier classifier) {
+	protected def String getLabel(EClassifier classifier) {
 		switch(classifier.name) {
 			case EcorePackage.Literals.ESTRING.name: 'String'
 			case EcorePackage.Literals.EINT.name: 'Integer'
@@ -124,14 +130,14 @@ class EcoreToBikeshed {
 		}
 	}
 
-	def String generateClassDiagram(String group, EPackage ePackage, List<EClassifier> classifiers) '''
+	protected def String generateClassDiagram(String group, EPackage ePackage, List<EClassifier> classifiers) '''
 		«generateClassDiagram('''«outputPath»/image-gen/«ePackage.name»-«group».svg''', generatePlatUMLDiagram(classifiers))»
 		<pre class=include>
 		path: image-gen/«ePackage.name»-«group».svg
 		</pre>
 	'''
 	
-	def String generatePlatUMLDiagram(List<EClassifier> classifiers) '''
+	protected def String generatePlatUMLDiagram(List<EClassifier> classifiers) '''
 		@startuml
 		skinparam classBackgroundColor LightGray
 		skinparam classBorderColor Black
@@ -139,41 +145,41 @@ class EcoreToBikeshed {
 		skinparam ArrowColor Black
 		hide methods
 		«FOR classifier : classifiers»
-		«IF classifier instanceof EClass»
-		«IF classifier.abstract»abstract «ENDIF»class «classifier.name» [[#«classifier.qualifiedName»]] #white {
-			«FOR attribute : classifier.EAttributes»
-			«attribute.name» : «attribute.EType.label»
-			«ENDFOR»
-			«FOR reference : classifier.EReferences.filter[!isContainment]»
-			«reference.name» : «reference.EType.label» [«reference.multiplicity»]
-			«ENDFOR»
-		}
-		«FOR superClass : classifier.ESuperTypes.filter[c|!classifiers.contains(c)]»
-		«IF superClass.abstract»abstract «ENDIF»class «superClass.name» [[#«superClass.qualifiedName»]]
-		hide «superClass.name» members
-		«ENDFOR»
-		«FOR type : classifier.EReferences.filter[isContainment].map[EType].filter(EClass).filter[c|!classifiers.contains(c)]»
-		«IF type.abstract»abstract «ENDIF»class «type.name» [[#«type.qualifiedName»]]
-		hide «type.name» members
-		«ENDFOR»
-		«FOR superClass : classifier.ESuperTypes»
-		«classifier.name» -up-|> «superClass.name» [[#«superClass.qualifiedName»]]
-		«ENDFOR»
-		«FOR reference : classifier.EReferences.filter[isContainment]»
-		«classifier.name» *--> "«reference.multiplicity»" «reference.EType.name» : «reference.name»
-		«ENDFOR»
-		«ELSEIF classifier instanceof EEnum»
-		enum «classifier.name» [[#«classifier.qualifiedName»]] #white {
-			«FOR literal : classifier.ELiterals»
-			«literal.name»
-			«ENDFOR»
-		}
-		«ENDIF»
+			«IF classifier instanceof EClass»
+				«IF classifier.abstract»abstract «ENDIF»class «classifier.name» [[#«classifier.name»]] #white {
+					«FOR attribute : classifier.EAttributes»
+						«attribute.name» : «attribute.EType.label»
+					«ENDFOR»
+					«FOR reference : classifier.EReferences.filter[!isContainment]»
+						«reference.name» : «reference.EType.label» [«reference.multiplicity»]
+					«ENDFOR»
+				}
+				«FOR superClass : classifier.ESuperTypes.filter[c|!classifiers.contains(c)]»
+					«IF superClass.abstract»abstract «ENDIF»class «superClass.name» [[#«superClass.name»]]
+					hide «superClass.name» members
+				«ENDFOR»
+				«FOR type : classifier.EReferences.filter[isContainment].map[EType].filter(EClass).filter[c|!classifiers.contains(c)]»
+					«IF type.abstract»abstract «ENDIF»class «type.name» [[#«type.name»]]
+					hide «type.name» members
+				«ENDFOR»
+				«FOR superClass : classifier.ESuperTypes»
+					«classifier.name» -up-|> «superClass.name» [[#«superClass.name»]]
+				«ENDFOR»
+				«FOR reference : classifier.EReferences.filter[isContainment]»
+					«classifier.name» *--> "«reference.multiplicity»" «reference.EType.name» : «reference.name»
+				«ENDFOR»
+			«ELSEIF classifier instanceof EEnum»
+				enum shape_«classifier.name» [[#«classifier.name»]] #white {
+					«FOR literal : classifier.ELiterals»
+						«literal.name»
+					«ENDFOR»
+				}
+			«ENDIF»
 		«ENDFOR»		
 		@enduml
 	'''
 
-	def String getMultiplicity(EStructuralFeature feature) {
+	protected def String getMultiplicity(EStructuralFeature feature) {
 		if (feature.isMany) {
 			return "*"
 		} else if (feature.isRequired) {
@@ -183,31 +189,47 @@ class EcoreToBikeshed {
 		}
 	}
 
-	def void generateClassDiagram(String path, String content) {
+	protected def void generateClassDiagram(String path, String content) {
 		val pumlReader = new SourceStringReader(content, "UTF-8")
-      	val svgFile = new File(path).toPath
+      	val svgFile = Paths.get(path)
       	svgFile.getParent.toFile.mkdirs()
       	val os = Files.newOutputStream(svgFile)
-      	pumlReader.outputImage(os, new FileFormatOption(FileFormat.SVG))		
+      	pumlReader.outputImage(os, new FileFormatOption(FileFormat.SVG))
+      	
+      	// remove the id properties from the SVG since they cause conflicts
+        val p = Pattern.compile('(id="[^"]*")')
+        val lines = Files.lines(svgFile);
+        val replaced = lines.map[line|
+        	var varLine = line
+	        val m = p.matcher(line)
+	        if (m.find()) {// skip the first id (affecting style)
+		        while (m.find) {
+		        	varLine = varLine.replaceAll(m.group(1), '')
+		        }
+	        }
+	        varLine
+        ].collect(Collectors.toList())
+        Files.write(svgFile, replaced)
+        lines.close()
 	}
 
-	def getHeadings(EPackage ePackage) {
+	protected def getHeadings(EPackage ePackage) {
 		new ArrayList(ePackage.EAnnotations.filter[source == BIKESHED_HEADINGS].flatMap[details].map[key].toList)
 	}
 
-	def getHeading(ENamedElement element) {
+	protected def getHeading(ENamedElement element) {
 		element.getAnnotationValue(Annotation.heading,element.name)
 	}
 	
-	def isAnnotationSet(EModelElement element, Annotation annotation) {
+	protected def isAnnotationSet(EModelElement element, Annotation annotation) {
 		getAnnotationValue(element, annotation) == "true"
 	}
 
-	def getAnnotationValue(EModelElement element, Annotation annotation, String defaultValue) {
+	protected def getAnnotationValue(EModelElement element, Annotation annotation, String defaultValue) {
 		getAnnotationValue(element, annotation) ?: defaultValue
 	}
 
-	def getAnnotationValue(EModelElement element, Annotation annotation) {
+	protected def getAnnotationValue(EModelElement element, Annotation annotation) {
 		element.EAnnotations.findFirst[BIKESHED == source]?.details?.get(annotation.toString)
 	}
 
