@@ -8,6 +8,8 @@ import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.ArrayList
 import java.util.Collection
 import java.util.HashMap
@@ -48,6 +50,13 @@ class App {
 		help=true, 
 		order=4) package boolean help
 
+	@Parameter(
+		names=#["--version","-v"], 
+		description="Displays app version", 
+		help=true, 
+		order=6)
+	package boolean version
+
 	val LOGGER = LogManager.getLogger(App)
 
 	/*
@@ -57,6 +66,10 @@ class App {
 		val app = new App
 		val builder = JCommander.newBuilder().addObject(app).build()
 		builder.parse(args)
+		if (app.version) {
+			println(app.getAppVersion)
+			return
+		}
 		if (app.help) {
 			builder.usage()
 			return
@@ -158,4 +171,20 @@ class App {
 	  	}
 	}
 	
+	/**
+	 * Get application version id from properties file.
+	 * @return version string from build.properties or UNKNOWN
+	 */
+	def String getAppVersion() {
+		var version = "UNKNOWN"
+		try {
+			val path = Paths.get(App.getClassLoader().getResource("version.txt").path)
+			version = new String(Files.readAllBytes(path))
+		} catch (IOException e) {
+			val errorMsg = "Could not read version.txt file."
+			LOGGER.error(errorMsg, e)
+		}
+		version
+	}
+
 }
