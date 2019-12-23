@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/opencaesar/ecore-bikeshed.svg?branch=master)](https://travis-ci.org/opencaesar/ecore-bikeshed)
 [ ![Download](https://api.bintray.com/packages/opencaesar/ecore-bikeshed/ecore2bikeshed/images/download.svg) ](https://bintray.com/opencaesar/ecore-bikeshed/ecore2bikeshed/_latestVersion)
 
-An [Bikeshed](https://github.com/tabatkins/bikeshed) generator for [Ecore](https://www.eclipse.org/modeling/emf/)
+A [Bikeshed](https://github.com/tabatkins/bikeshed) generator for [Ecore](https://www.eclipse.org/modeling/emf/) that can be run as an app from the Terminal or as a Gradle plugin.
 
 ## Clone
 ```
@@ -18,7 +18,7 @@ Requirements: java 8, node 8.x,
     ./gradlew build
 ```
 
-## Run
+## Run from Terminal
 
 MacOS/Linux:
 ```
@@ -29,6 +29,32 @@ Windows:
 ```
     cd ecore2bikeshed
     gradlew.bat run --args="-i path/to/ecore/folder -o path/to/bikeshed/folder"
+```
+
+## Run from Gradle
+
+Add the following to an Ecore project's build.gradle:
+```
+buildscript {
+	repositories {
+		maven { url 'https://dl.bintray.com/opencaesar/ecore-bikeshed' }
+		jcenter()
+	}
+	dependencies {
+		classpath 'io.opencaesar.bikeshed:ecore2bikeshed:+'
+	}
+}
+
+apply plugin: 'io.opencaesar.ecore2bikeshed'
+
+ecore2bikeshed {
+	inputPath = 'path/to/ecore/folder'
+	outputPath = 'path/to/bikeshed/folder'
+}
+
+task clean(type: Delete) {
+	delete 'path/to/bikeshed/folder'
+}
 ```
 
 ## Release
