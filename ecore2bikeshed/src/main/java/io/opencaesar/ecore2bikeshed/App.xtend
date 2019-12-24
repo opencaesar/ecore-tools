@@ -92,7 +92,7 @@ class App {
 	 */
 	def void run() {
 		LOGGER.info("=================================================================")
-		LOGGER.info("                        S T A R T")
+		LOGGER.info("                        S T A R T "+getAppVersion)
 		LOGGER.info("=================================================================")
 		LOGGER.info("Input Folder= " + inputPath)
 		LOGGER.info("Output Folder= " + outputPath)
@@ -110,7 +110,7 @@ class App {
 			val inputResource = inputResourceSet.getResource(inputURI, true)
 			if (inputResource !== null) {
 				LOGGER.info("Reading: "+inputURI)
-				var relativePath = outputPath+'/src-gen/'+inputFolder.toURI().relativize(inputFile.toURI()).getPath()
+				var relativePath = outputPath+'/'+inputFolder.toURI().relativize(inputFile.toURI()).getPath()
 				val outputFile = new File(relativePath.substring(0, relativePath.lastIndexOf('.')+1)+'md')
 				outputFiles.put(outputFile, new EcoreToBikeshed(inputResource, outputPath).run)
 			}

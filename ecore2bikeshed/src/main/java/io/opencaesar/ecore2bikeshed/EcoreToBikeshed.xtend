@@ -131,9 +131,9 @@ class EcoreToBikeshed {
 	}
 
 	protected def String generateClassDiagram(String group, EPackage ePackage, List<EClassifier> classifiers) '''
-		«generateClassDiagram('''«outputPath»/image-gen/«ePackage.name»-«group».svg''', generatePlatUMLDiagram(classifiers))»
+		«generateClassDiagram('''«outputPath»/images/«ePackage.name»-«group».svg''', generatePlatUMLDiagram(classifiers))»
 		<pre class=include>
-		path: image-gen/«ePackage.name»-«group».svg
+		path: images/«ePackage.name»-«group».svg
 		</pre>
 	'''
 	
