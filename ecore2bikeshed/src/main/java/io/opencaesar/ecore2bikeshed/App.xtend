@@ -166,7 +166,7 @@ class App {
 		override validate(String name, String value) throws ParameterException {
 			val directory = new File(value).absoluteFile
 			if (!directory.isDirectory) {
-				throw new ParameterException("Parameter " + name + " should be a valid folder path");
+				throw new ParameterException("Parameter " + name + " should be a valid folder path: "+directory);
 			}
 	  	}
 	}
