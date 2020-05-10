@@ -26,7 +26,7 @@ apply plugin: 'java-gradle-plugin'
 apply plugin: 'com.jfrog.bintray'
 
 group = 'io.opencaesar.bikeshed'
-version = rootProject.file('src/main/resources/version.txt').text.trim()
+version = '0.6.3'
 mainClassName = 'io.opencaesar.ecore2bikeshed.App'
 applicationName = 'ecore2bikeshed'
 ext.title = 'Ecore to Bikeshed'
@@ -67,5 +67,17 @@ gradlePlugin {
             implementationClass = 'io.opencaesar.ecore2bikeshed.GradlePlugin'
         }
     }
+
+	task createVersion {
+	    doLast {
+	        def version = project.version.toString()
+	        def file = new File("$projectDir/src/main/resources/version.txt")
+	        file.write(version)
+	    }
+	}
+	
+	classes {
+	    dependsOn createVersion
+	}
 }
 

@@ -92,7 +92,8 @@ class App {
 	 */
 	def void run() {
 		LOGGER.info("=================================================================")
-		LOGGER.info("                        S T A R T "+getAppVersion)
+		LOGGER.info("                        S T A R T ")
+		LOGGER.info("                    Ecore to Bikeshed "+getAppVersion)
 		LOGGER.info("=================================================================")
 		LOGGER.info("Input Folder= " + inputPath)
 		LOGGER.info("Output Folder= " + outputPath)
