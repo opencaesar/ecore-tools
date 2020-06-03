@@ -169,7 +169,7 @@ class EcoreToBikeshed {
 					«classifier.name» *--> "«reference.multiplicity»" «reference.EType.name» : «reference.name»
 				«ENDFOR»
 			«ELSEIF classifier instanceof EEnum»
-				enum shape_«classifier.name» [[#«classifier.name»]] #white {
+				enum «classifier.name» [[#«classifier.name»]] #white {
 					«FOR literal : classifier.ELiterals»
 						«literal.name»
 					«ENDFOR»
