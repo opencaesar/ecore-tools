@@ -78,10 +78,10 @@ class App {
 			val appender = LogManager.getRootLogger.getAppender("stdout")
 			(appender as AppenderSkeleton).setThreshold(Level.DEBUG)
 		}
-		if (app.inputPath.endsWith('/')) {
+		if (app.inputPath.endsWith(File.separator)) {
 			app.inputPath = app.inputPath.substring(0, app.inputPath.length-1)
 		}
-		if (app.outputPath.endsWith('/')) {
+		if (app.outputPath.endsWith(File.separator)) {
 			app.outputPath = app.outputPath.substring(0, app.outputPath.length-1)
 		}
 		app.run()
@@ -111,7 +111,7 @@ class App {
 			val inputResource = inputResourceSet.getResource(inputURI, true)
 			if (inputResource !== null) {
 				LOGGER.info("Reading: "+inputURI)
-				var relativePath = outputPath+'/'+inputFolder.toURI().relativize(inputFile.toURI()).getPath()
+				var relativePath = outputPath+File.separator+inputFolder.toURI().relativize(inputFile.toURI()).getPath()
 				val outputFile = new File(relativePath.substring(0, relativePath.lastIndexOf('.')+1)+'md')
 				outputFiles.put(outputFile, new EcoreToBikeshed(inputResource, outputPath).run)
 			}
