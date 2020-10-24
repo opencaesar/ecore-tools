@@ -1,4 +1,4 @@
-# OML Tools
+# Ecore Tools
 
 [![Build Status](https://travis-ci.org/opencaesar/ecore-tools.svg?branch=master)](https://travis-ci.org/opencaesar/ecore-tools)
 
