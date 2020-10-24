@@ -1,0 +1,2 @@
+include 'ecore-bikeshed'
+include 'ecore-bikeshed-gradle'

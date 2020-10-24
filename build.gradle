@@ -1,0 +1,50 @@
+buildscript {
+	repositories {
+	    mavenLocal()
+  		mavenCentral()
+		jcenter()
+	}
+	dependencies {
+		classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.+'
+	}
+}
+
+subprojects {
+
+	group = 'io.opencaesar.ecore'
+	version = '0.7.0'
+
+	ext.versions = [
+		plantuml: '1.2019.0'
+	]
+
+	repositories {
+		mavenLocal()
+		mavenCentral()
+		jcenter()
+	}
+
+	apply plugin: 'java-library'
+	apply plugin: 'eclipse'
+	apply plugin: 'idea'
+	apply plugin: 'com.jfrog.bintray'
+
+	apply from: "${rootDir}/gradle/source-layout.gradle"
+	apply from: "${rootDir}/gradle/maven-deployment.gradle"
+
+	sourceCompatibility = '11'
+	targetCompatibility = '11'
+
+	task createVersion {
+	    doLast {
+	        def version = project.version.toString()
+	        def file = new File("$projectDir/src/main/resources/version.txt")
+	        file.write(version)
+	    }
+	}
+
+	classes {
+	    dependsOn createVersion
+	}
+
+}

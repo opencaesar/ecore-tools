@@ -1,0 +1,7 @@
+ext.title = 'Ecore Bikeshed Gradle'
+description = 'A gradle interface to Ecore Bikeshed'
+
+dependencies {
+	implementation gradleApi()
+    implementation project (':ecore-bikeshed')
+}

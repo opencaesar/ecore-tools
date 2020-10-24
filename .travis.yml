@@ -2,10 +2,7 @@ language: java
 install: true
 
 jdk:
-- openjdk8
-
-before_script:
-- cd ecore2bikeshed
+- openjdk11
 
 script:
   - ./gradlew build
@@ -17,5 +14,4 @@ deploy:
     dry-run: false
     on:
       tags: true
-      repo: opencaesar/ecore-bikeshed
       branch: master
