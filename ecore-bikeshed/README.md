@@ -1,6 +1,6 @@
 # Ecore Bikeshed
 
-[![Release](https://img.shields.io/github/v/release/opencaesar/ecore-tools?label=download)](https://github.com/opencaesar/ecore-tools/releases/latest)
+[![Release](https://img.shields.io/github/v/tag/opencaesar/ecore-tools?label=download)](https://github.com/opencaesar/ecore-tools/releases/latest)
 
 A tool to generate [Bikeshed](https://tabatkins.github.io/bikeshed/) specifications from [Ecore](https://www.eclipse.org/modeling/emf/) models
 
