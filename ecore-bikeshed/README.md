@@ -1,6 +1,6 @@
 # Ecore Bikeshed
 
-[ ![Download](https://api.bintray.com/packages/opencaesar/ecore-tools/ecore-bikeshed/images/download.svg) ](https://bintray.com/opencaesar/ecore-tools/ecore-bikeshed/_latestVersion)
+[![Release](https://img.shields.io/github/v/release/opencaesar/ecore-tools?label=download)](https://github.com/opencaesar/ecore-tools/releases/latest)
 
 A tool to generate [Bikeshed](https://tabatkins.github.io/bikeshed/) specifications from [Ecore](https://www.eclipse.org/modeling/emf/) models
 
@@ -25,7 +25,7 @@ Args:
 ```
 buildscript {
 	repositories {
-		maven { url 'https://dl.bintray.com/opencaesar/ecore-tools' }
+		maven { url 'https://maven.pkg.github.com/opencaesar/ecore-tools' }
   		mavenCentral()
 		jcenter()
 	}

@@ -2,10 +2,6 @@ buildscript {
 	repositories {
 	    mavenLocal()
   		mavenCentral()
-		jcenter()
-	}
-	dependencies {
-		classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.+'
 	}
 }
 
@@ -27,7 +23,6 @@ subprojects {
 	apply plugin: 'java-library'
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
-	apply plugin: 'com.jfrog.bintray'
 
 	apply from: "${rootDir}/gradle/source-layout.gradle"
 	apply from: "${rootDir}/gradle/maven-deployment.gradle"

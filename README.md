@@ -1,6 +1,7 @@
 # Ecore Tools
 
 [![Build Status](https://travis-ci.org/opencaesar/ecore-tools.svg?branch=master)](https://travis-ci.org/opencaesar/ecore-tools)
+[![Release](https://img.shields.io/github/v/release/opencaesar/ecore-tools?label=download)](https://github.com/opencaesar/ecore-tools/releases/latest)
 
 A set of tools that work on [Ecore](https://www.eclipse.org/modeling/emf/) models.
 
@@ -16,6 +17,6 @@ Requirements: JDK 11
     ./gradlew build
 ```
 
-## [Ecore Bikeshed](ecore-bikeshed/README.md)[ ![Download](https://api.bintray.com/packages/opencaesar/ecore-tools/ecore-bikeshed/images/download.svg) ](https://bintray.com/opencaesar/ecore-tools/ecore-bikeshed/_latestVersion)
+## [Ecore Bikeshed](ecore-bikeshed/README.md)
 
 A tool to generate [Bikeshed](https://tabatkins.github.io/bikeshed/) specifications from [Ecore](https://www.eclipse.org/modeling/emf/) models
