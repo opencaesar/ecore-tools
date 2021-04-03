@@ -71,6 +71,8 @@ public class Ecore2BikeshedApp {
 
 	/**
 	 * Main method
+	 * 
+	 * @param args The arguments passed to the application
 	 */
 	public static void main(final String... args) {
 		final Ecore2BikeshedApp app = new Ecore2BikeshedApp();

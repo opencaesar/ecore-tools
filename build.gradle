@@ -1,45 +1,45 @@
-buildscript {
-	repositories {
-	    mavenLocal()
-  		mavenCentral()
-	}
-}
-
 subprojects {
-
 	group = 'io.opencaesar.ecore'
 	version = '0.7.0'
-
+	
 	ext.versions = [
-		plantuml: '1.2019.0'
+		plantuml: '1.2019.0',
+		jcommander: '1.72',
+		log4j: '1.2.17',
+		slf4j: '1.7.30',
+		junit: '4.12',
+	    xtext: '2.23.0',
+	    xcore: '1.15.0',
+	    xcoreLib: '1.5.0',
+	    mwe2: '2.11.3',
+	    codegen: '2.21.0',
+	    codegenEcore: '2.23.0',
+	    codegenEcoreXtext: '1.5.0',
 	]
+
+	apply plugin: 'java'
+	apply plugin: 'eclipse'
+	apply plugin: 'idea'
+	apply from: "${rootDir}/gradle/maven-deployment.gradle"
+
+	sourceCompatibility = '11'
+
+	java {
+	    withJavadocJar()
+	    withSourcesJar()
+	}
 
 	repositories {
 		mavenLocal()
 		mavenCentral()
-		jcenter()
 	}
 
-	apply plugin: 'java-library'
-	apply plugin: 'eclipse'
-	apply plugin: 'idea'
-
-	apply from: "${rootDir}/gradle/source-layout.gradle"
-	apply from: "${rootDir}/gradle/maven-deployment.gradle"
-
-	sourceCompatibility = '11'
-	targetCompatibility = '11'
-
-	task createVersion {
+	classes {
 	    doLast {
 	        def version = project.version.toString()
 	        def file = new File("$projectDir/src/main/resources/version.txt")
 	        file.write(version)
 	    }
-	}
-
-	classes {
-	    dependsOn createVersion
 	}
 
 }

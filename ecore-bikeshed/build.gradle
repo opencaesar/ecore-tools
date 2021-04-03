@@ -1,14 +1,8 @@
-plugins {
-  id "org.xtext.xtend" version "2.0.8"
-}
+plugins { id "org.xtext.xtend" version "2.0.8" }
 
 sourceSets {
-	main {
-		xtendOutputDir = 'src/main/xtend-gen'
-	}
-	test {
-		xtendOutputDir = 'src/test/xtend-gen'
-	}
+	main { xtendOutputDir = 'src/main/xtend-gen' }
+	test { xtendOutputDir = 'src/test/xtend-gen' }
 }
 
 apply plugin: 'application'
@@ -19,22 +13,21 @@ mainClassName = 'io.opencaesar.ecore.bikeshed.Ecore2BikeshedApp'
 applicationName = 'ecore2bikeshed'
 
 dependencies {
-    implementation 'com.beust:jcommander:1.72'
+	implementation "com.beust:jcommander:${versions.jcommander}"
+	implementation "log4j:log4j:${versions.log4j}"
+	implementation "org.slf4j:slf4j-simple:${versions.slf4j}"
+	testImplementation "junit:junit:${versions.junit}"
+
 	implementation "net.sourceforge.plantuml:plantuml:${versions.plantuml}"
 
-	implementation 'org.eclipse.xtext:org.eclipse.xtext.ecore:2.23.0'
-	implementation 'org.eclipse.xtext:org.eclipse.xtext.xbase:2.23.0'
-
-	implementation 'org.antlr:antlr-runtime:3.2'
-	implementation('org.eclipse.emf:org.eclipse.emf.ecore.xcore:1.15.0') {
-       exclude group: 'org.antlr', module: 'antlr-runtime'
-	} 
-	implementation 'org.eclipse.emf:org.eclipse.emf.ecore.xcore.lib:1.5.0'
-
-	implementation "org.eclipse.emf:org.eclipse.emf.mwe2.runtime:2.11.3"
-	implementation 'org.eclipse.emf:org.eclipse.emf.codegen:2.21.0'
-	implementation 'org.eclipse.emf:org.eclipse.emf.codegen.ecore:2.23.0'
-	implementation 'org.eclipse.emf:org.eclipse.emf.codegen.ecore.xtext:1.5.0'
-
-    testImplementation 'junit:junit:4.12'
+	implementation "org.eclipse.xtext:org.eclipse.xtext.ecore:${versions.xtext}"
+	implementation "org.eclipse.xtext:org.eclipse.xtext.xbase:${versions.xtext}"
+	implementation ("org.eclipse.emf:org.eclipse.emf.ecore.xcore:${versions.xcore}"){
+		exclude group: 'org.antlr', module: 'antlr-runtime'
+	}
+	implementation "org.eclipse.emf:org.eclipse.emf.ecore.xcore.lib:${versions.xcoreLib}"
+	implementation "org.eclipse.emf:org.eclipse.emf.mwe2.runtime:${versions.mwe2}"
+	implementation "org.eclipse.emf:org.eclipse.emf.codegen:${versions.codegen}"
+	implementation "org.eclipse.emf:org.eclipse.emf.codegen.ecore:${versions.codegenEcore}"
+	implementation "org.eclipse.emf:org.eclipse.emf.codegen.ecore.xtext:${versions.codegenEcoreXtext}"
 }

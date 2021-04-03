@@ -1,4 +1,4 @@
-ext.title = 'Ecore Bikeshed Gradle'
+ext.title = 'Ecore Bikeshed Gradle Task'
 description = 'A gradle interface to Ecore Bikeshed'
 
 dependencies {

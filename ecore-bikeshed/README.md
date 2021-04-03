@@ -25,9 +25,7 @@ Args:
 ```
 buildscript {
 	repositories {
-		maven { url 'https://maven.pkg.github.com/opencaesar/ecore-tools' }
   		mavenCentral()
-		jcenter()
 	}
 	dependencies {
 		classpath 'io.opencaesar.ecore:ecore-bikeshed-gradle:+'
