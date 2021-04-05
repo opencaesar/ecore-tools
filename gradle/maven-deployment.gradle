@@ -62,7 +62,7 @@ publishing {
 }
 
 signing {
-    useInMemoryPgpKeys(pgpSigningKey, pgpSigningPassword)
+    useInMemoryPgpKeys(new String(pgpSigningKey.decodeBase64()), pgpSigningPassword)
     sign publishing.publications
 }
 
