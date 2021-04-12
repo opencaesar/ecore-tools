@@ -14,7 +14,7 @@ script:
 
 deploy:
   - provider: script
-    script: ./gradlew publish -Dorg.gradle.parallel=false
+    script: ./gradlew publish
     skip_cleanup: true
     dry-run: false
     on:
