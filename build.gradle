@@ -17,6 +17,11 @@ subprojects {
 	    codegenEcoreXtext: '1.5.0',
 	]
 
+	repositories {
+		mavenLocal()
+		mavenCentral()
+	}
+
 	apply plugin: 'java'
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
@@ -27,11 +32,6 @@ subprojects {
 	java {
 	    withJavadocJar()
 	    withSourcesJar()
-	}
-
-	repositories {
-		mavenLocal()
-		mavenCentral()
 	}
 
 	classes {
