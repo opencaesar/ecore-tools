@@ -1,7 +1,7 @@
 # Ecore Tools
 
 [![Build Status](https://travis-ci.org/opencaesar/ecore-tools.svg?branch=master)](https://travis-ci.org/opencaesar/ecore-tools)
-[![Release](https://img.shields.io/github/v/tag/opencaesar/ecore-tools?label=download)](https://github.com/opencaesar/ecore-tools/releases/latest)
+[![Release](https://img.shields.io/github/v/tag/opencaesar/ecore-tools?label=release)](https://github.com/opencaesar/ecore-tools/releases/latest)
 
 A set of tools that work on [Ecore](https://www.eclipse.org/modeling/emf/) models.
 
