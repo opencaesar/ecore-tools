@@ -2,7 +2,7 @@ language: java
 install: true
 
 jdk:
-- openjdk11
+  - openjdk11
 
 cache:
   directories:
@@ -16,7 +16,6 @@ deploy:
   - provider: script
     script: ./gradlew publish
     skip_cleanup: true
-    dry-run: false
     on:
       tags: true
       branch: master
