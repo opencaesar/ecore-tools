@@ -1,6 +1,6 @@
 subprojects {
 	group = 'io.opencaesar.ecore'
-	version = '0.7.0'
+	version = '0.8.0'
 	
 	ext.versions = [
 		plantuml: '1.2019.0',

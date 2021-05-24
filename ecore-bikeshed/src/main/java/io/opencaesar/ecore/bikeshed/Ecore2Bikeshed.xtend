@@ -9,15 +9,20 @@ import java.util.stream.Collectors
 import net.sourceforge.plantuml.FileFormat
 import net.sourceforge.plantuml.FileFormatOption
 import net.sourceforge.plantuml.SourceStringReader
+import org.eclipse.emf.ecore.EAttribute
 import org.eclipse.emf.ecore.EClass
 import org.eclipse.emf.ecore.EClassifier
 import org.eclipse.emf.ecore.EEnum
 import org.eclipse.emf.ecore.EModelElement
 import org.eclipse.emf.ecore.ENamedElement
 import org.eclipse.emf.ecore.EPackage
+import org.eclipse.emf.ecore.EReference
 import org.eclipse.emf.ecore.EStructuralFeature
 import org.eclipse.emf.ecore.EcorePackage
 import org.eclipse.emf.ecore.resource.Resource
+import org.eclipse.emf.ecore.util.EcoreUtil
+import org.eclipse.emf.ecore.xcore.XAttribute
+import org.eclipse.emf.ecore.xcore.mappings.ToXcoreMapping
 
 class Ecore2Bikeshed {
 
@@ -77,7 +82,7 @@ class Ecore2Bikeshed {
 			«IF eAttribute.EType instanceof EEnum»
 			* **«eAttribute.name»** : [=«eAttribute.EType.name»=] [«eAttribute.multiplicity»]
 			«ELSE»
-			* **«eAttribute.name»** : «eAttribute.EType.label» [«eAttribute.multiplicity»]
+			* **«eAttribute.name»** : «eAttribute.typeLabel» [«eAttribute.multiplicity»]
 			«ENDIF»
 			
 				«eAttribute.documentation»
@@ -115,8 +120,8 @@ class Ecore2Bikeshed {
 		element.EAnnotations.findFirst[source == "http://www.eclipse.org/emf/2002/GenModel"]?.details?.get("documentation")?:""
 	}
 	
-	protected def String getLabel(EClassifier classifier) {
-		switch(classifier.name) {
+	protected def String map(String type) {
+		switch(type) {
 			case EcorePackage.Literals.ESTRING.name: 'String'
 			case EcorePackage.Literals.EINT.name: 'Integer'
 			case EcorePackage.Literals.EINTEGER_OBJECT.name: 'Integer'
@@ -126,9 +131,33 @@ class Ecore2Bikeshed {
 			case EcorePackage.Literals.EFLOAT.name: 'Float'
 			case EcorePackage.Literals.EFLOAT_OBJECT.name: 'Float'
 			case EcorePackage.Literals.EBIG_DECIMAL.name: 'BigDecimal'
-			default: classifier.name
+			default: type
 		}
 	}
+	
+	protected dispatch def String getTypeLabel(EAttribute eAttribute) {
+		var label = eAttribute.EType.name.map
+		/*
+		 * This is a HACK!! Remove when we figure out another way
+		 * If the resource set fails to resolve the type (happens when invoked from Gradle)
+		 * it defaults to EJavaObject. In this case, get the type name from the proxy URI
+		 */
+		if (label == EcorePackage.Literals.EJAVA_OBJECT.name) {
+			val adapter = EcoreUtil.getAdapter(eAttribute.eAdapters(), ToXcoreMapping) as ToXcoreMapping
+			if (adapter !== null) {
+				val xattr = adapter.xcoreElement as XAttribute
+				val proxyURI = EcoreUtil.getURI(xattr.type.type).toString
+				val type = proxyURI.substring(proxyURI.lastIndexOf('/')+1)
+				label = type.map
+			}
+		}
+		return label	
+	}
+
+	protected dispatch def String getTypeLabel(EReference eReference) {
+		return eReference.EType.name.map
+	}
+	
 	protected def String generateClassDiagram(String group, EPackage ePackage, List<EClassifier> classifiers) '''
 		«generateClassDiagram('''«outputPath»/images/«ePackage.name»-«group».svg''', generatePlatUMLDiagram(classifiers))»
 		<pre class=include>
@@ -147,10 +176,10 @@ class Ecore2Bikeshed {
 			«IF classifier instanceof EClass»
 				«IF classifier.abstract»abstract «ENDIF»class «classifier.name» [[#«classifier.name»]] #white {
 					«FOR attribute : classifier.EAttributes»
-						«attribute.name» : «attribute.EType.label»
+						«attribute.name» : «attribute.typeLabel»
 					«ENDFOR»
 					«FOR reference : classifier.EReferences.filter[!isContainment]»
-						«reference.name» : «reference.EType.label» [«reference.multiplicity»]
+						«reference.name» : «reference.typeLabel» [«reference.multiplicity»]
 					«ENDFOR»
 				}
 				«FOR superClass : classifier.ESuperTypes.filter[c|!classifiers.contains(c)]»
