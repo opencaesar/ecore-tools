@@ -1,6 +1,6 @@
 subprojects {
 	group = 'io.opencaesar.ecore'
-	version = '0.8.0'
+	version = '0.8.1'
 	
 	ext.versions = [
 		plantuml: '1.2019.0',
@@ -34,11 +34,10 @@ subprojects {
 	    withSourcesJar()
 	}
 
-	classes {
-	    doLast {
-	        def version = project.version.toString()
-	        def file = new File("$projectDir/src/main/resources/version.txt")
-	        file.write(version)
+	tasks.named('jar') {
+	    manifest {
+	        attributes('Implementation-Title': project.name,
+	                   'Implementation-Version': project.version)
 	    }
 	}
 

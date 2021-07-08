@@ -3,9 +3,6 @@ package io.opencaesar.ecore.bikeshed;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,7 +22,6 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.google.common.base.Objects;
-import com.google.common.io.CharStreams;
 import com.google.inject.Injector;
 
 @SuppressWarnings("all")
@@ -184,15 +180,8 @@ public class Ecore2BikeshedApp {
 	 * @return version string from build.properties or UNKNOWN
 	 */
 	public String getAppVersion() {
-		String version = "UNKNOWN";
-		try {
-			final InputStream input = Thread.currentThread().getContextClassLoader().getResourceAsStream("version.txt");
-			final InputStreamReader reader = new InputStreamReader(input);
-			version = CharStreams.toString(reader);
-		} catch (IOException e) {
-			LOGGER.error("Could not read version.txt file." + e, e);
-		}
-		return version;
+    	var version = this.getClass().getPackage().getImplementationVersion();
+    	return (version != null) ? version : "<SNAPSHOT>";
 	}
 
 	public static class InputFolderPath implements IParameterValidator {
