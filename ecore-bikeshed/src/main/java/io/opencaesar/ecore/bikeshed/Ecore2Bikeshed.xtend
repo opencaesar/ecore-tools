@@ -23,6 +23,7 @@ import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.util.EcoreUtil
 import org.eclipse.emf.ecore.xcore.XAttribute
 import org.eclipse.emf.ecore.xcore.mappings.ToXcoreMapping
+import org.eclipse.emf.ecore.EDataType
 
 class Ecore2Bikeshed {
 
@@ -62,49 +63,68 @@ class Ecore2Bikeshed {
 		### <dfn>«IF eClassifier.abstract»*«ENDIF»«eClassifier.name»«IF eClassifier.abstract»*«ENDIF»</dfn> ### {#«eClassifier.name»}
 			«eClassifier.documentation»
 			
+			<table class='def'>
 			«val superClasses = eClassifier.ESuperTypes»
 			«IF !superClasses.empty»
-			*Super classes:*
-			«superClasses.sortBy[name].map['[='+name+'=]'].join(', ')»
+				<tr>
+					<th>Super classes</th>
+					<td><ul>
+						«FOR superClass : superClasses.sortBy[name]»
+						<li>[=«superClass.name»=]</li>
+						«ENDFOR»
+					</ul></td>
+				</tr>
 			«ENDIF»
 			
 			«val subClasses = eClassifier.eResource.resourceSet.allContents.filter(EClass).filter[ESuperTypes.contains(eClassifier)].toList»
 			«IF !subClasses.empty»
-			*Sub classes:*
-			«subClasses.map['[='+name+'=]'].join(', ')»
+				<tr>
+					<th>Sub classes</th>
+					<td><ul>
+						«FOR subClass : subClasses.sortBy[name]»
+						<li>[=«subClass.name»=]</li>
+						«ENDFOR»
+					</ul></td>
+				</tr>
 			«ENDIF»
 
-			«val attributes = eClassifier.EAttributes»
-			«val references = eClassifier.EReferences»
-			«IF !attributes.empty || !references.empty»
-			*Properties:*
-			«FOR eAttribute : attributes»
-			«IF eAttribute.EType instanceof EEnum»
-			* **«eAttribute.name»** : [=«eAttribute.EType.name»=] [«eAttribute.multiplicity»]
-			«ELSE»
-			* **«eAttribute.name»** : «eAttribute.typeLabel» [«eAttribute.multiplicity»]
+			«val features = eClassifier.EStructuralFeatures»
+			«IF !features.empty»
+				<tr>
+					<th>Properties</th>
+					<td><ul>
+						«FOR feature : features»
+							«IF feature.EType instanceof EEnum»
+							<li>«feature.name» : [=«feature.EType.name»=] [«feature.multiplicity»]</li>
+							«ELSEIF feature.EType instanceof EDataType»
+							<li>«feature.name» : «feature.typeLabel» [«feature.multiplicity»]</li>
+							«ELSE»
+							<li>«feature.name» : [=«feature.EType.name»=] [«feature.multiplicity»]</li>
+							«ENDIF»
+						
+								«feature.documentation»
+						«ENDFOR»
+					</ul></td>
+				</tr>
 			«ENDIF»
-			
-				«eAttribute.documentation»
-			«ENDFOR»
-			«FOR eReference : references»
-			* **«eReference.name»** : [=«eReference.EType.name»=] [«eReference.multiplicity»]
-			
-				«eReference.documentation»			
-			«ENDFOR»
-			«ENDIF»
+			</table>
 		«ELSEIF eClassifier instanceof EEnum»
 		### <dfn>«eClassifier.name»</dfn> ### {#«eClassifier.name»}
 			«eClassifier.documentation»
 					
-			*Literals:*
-			«FOR eLiteral : eClassifier.ELiterals»
-			* **«eLiteral.name»**
-			
-				«eLiteral.documentation»
-			«ENDFOR»
+			<table class='def'>
+				<tr>
+					<th>Literals</th>
+					<td><ul>
+						«FOR literal : eClassifier.ELiterals.sortBy[name]»
+						<li>«literal.name»</li>
+						
+							«literal.documentation»
+						«ENDFOR»
+					</ul></td>
+				</tr>
+			</table>
 		«ENDIF»
-		
 		«ENDFOR»
 		«ENDIF»
 		
