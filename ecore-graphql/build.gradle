@@ -1,0 +1,28 @@
+
+apply plugin: 'application'
+
+ext.title = 'Ecore to GraphQL'
+description = 'GraphQL generator for Ecore'
+mainClassName = 'io.opencaesar.ecore.graphql.Ecore2GraphQLApp'
+applicationName = 'ecore2graphql'
+
+dependencies {
+    implementation "com.beust:jcommander:${versions.jcommander}"
+    implementation "log4j:log4j:${versions.log4j}"
+    implementation "org.slf4j:slf4j-simple:${versions.slf4j}"
+    implementation 'org.jetbrains:annotations:20.1.0'
+    testImplementation "junit:junit:${versions.junit}"
+
+    implementation "com.graphql-java:graphql-java:${versions.graphQLJava}"
+
+    implementation "org.eclipse.xtext:org.eclipse.xtext.ecore:${versions.xtext}"
+    implementation "org.eclipse.xtext:org.eclipse.xtext.xbase:${versions.xtext}"
+    implementation ("org.eclipse.emf:org.eclipse.emf.ecore.xcore:${versions.xcore}"){
+        exclude group: 'org.antlr', module: 'antlr-runtime'
+    }
+    implementation "org.eclipse.emf:org.eclipse.emf.ecore.xcore.lib:${versions.xcoreLib}"
+    implementation "org.eclipse.emf:org.eclipse.emf.mwe2.runtime:${versions.mwe2}"
+    implementation "org.eclipse.emf:org.eclipse.emf.codegen:${versions.codegen}"
+    implementation "org.eclipse.emf:org.eclipse.emf.codegen.ecore:${versions.codegenEcore}"
+    implementation "org.eclipse.emf:org.eclipse.emf.codegen.ecore.xtext:${versions.codegenEcoreXtext}"
+}

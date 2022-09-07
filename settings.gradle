@@ -1,2 +1,4 @@
 include 'ecore-bikeshed'
 include 'ecore-bikeshed-gradle'
+include 'ecore-graphql'
+include 'ecore-graphql-gradle'
