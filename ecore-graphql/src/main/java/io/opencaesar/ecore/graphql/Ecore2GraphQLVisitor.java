@@ -13,6 +13,7 @@ import org.eclipse.emf.ecore.util.EcoreSwitch;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -30,9 +31,11 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     private final Map<EClass, GraphQLInterfaceType> interfaceTypes = new HashMap<>();
     private final Map<EClass, GraphQLObjectType> objectTypes = new HashMap<>();
-    private final Map<EClass, GraphQLFieldDefinition> idFields = new HashMap<>();
 
     private final Set<EPackage> packages = new HashSet<>();
+
+    private final Set<EClass> allMetaclasses = new HashSet<>();
+    private final Set<EClass> containedMetaclasses = new HashSet<>();
 
     private final TypeResolver typeResolver = env -> {
         if (env.getObject() instanceof EObject) {
@@ -126,6 +129,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             LOGGER.debug("EClass: " + c.getName() + " -> object type");
         }
         fields.put(c, new ArrayList<>());
+        allMetaclasses.add(c);
         return c;
     }
 
@@ -135,7 +139,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         fb.name(a.getName());
 
         EClass c = a.getEContainingClass();
-        fb.description("EAttribute "+c.getName() + "::" + a.getName());
+        fb.description("EAttribute " + c.getName() + "::" + a.getName());
 
         EDataType dt = a.getEAttributeType();
         GraphQLOutputType qt = referenceClassifierOutputType(dt);
@@ -157,11 +161,6 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         if (null != ob)
             ob.field(f);
 
-        EAnnotation ag = a.getEAnnotation("http://io.opencaesar.oml/graphql");
-        if (null != ag && ag.getDetails().get("id").equalsIgnoreCase("true")) {
-            idFields.put(c, f);
-        }
-
         return a;
     }
 
@@ -171,9 +170,14 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         fb.name(r.getName());
 
         EClass c = r.getEContainingClass();
-        fb.description("EReference "+c.getName() + "::" + r.getName());
+        fb.description("EReference " + c.getName() + "::" + r.getName());
 
         EClass rt = r.getEReferenceType();
+        if (r.isContainment()) {
+            containedMetaclasses.add(rt);
+            containedMetaclasses.addAll(rt.getEAllSuperTypes().stream().filter(ec -> !ec.isAbstract()).collect(Collectors.toList()));
+        }
+
         GraphQLOutputType qt = referenceClassifierOutputType(rt);
         updateMultiplicity(fb, r, qt);
 
@@ -215,7 +219,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
         GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
         fb.name(o.getName());
-        fb.description("EOperation "+c.getName() + "::" + o.getName());
+        fb.description("EOperation " + c.getName() + "::" + o.getName());
 
         GraphQLOutputType qt = referenceClassifierOutputType(t);
         updateMultiplicity(fb, o, qt);
@@ -309,7 +313,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     public void addBuilds(@NotNull GraphQLSchema.Builder builder) {
         if (packages.size() > 1) {
-            LOGGER.warn("The generated GraphQL schema corresponds to mapping the union of all "+packages.size()+" input metamodel packages.");
+            LOGGER.warn("The generated GraphQL schema corresponds to mapping the union of all " + packages.size() + " input metamodel packages.");
         }
 
         for (GraphQLScalarType.Builder b : scalarBuilders.values()) {
@@ -341,47 +345,47 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         GraphQLObjectType.Builder b = GraphQLObjectType.newObject();
         b.name("Query");
 
+        // Candidate root metaclasses:
+        // - it is not a contained metaclass
+        // - it is not a superclass of a contained metaclass
+        // - none of its superclasses is a contained metaclass
+        final List<EClass> candidateMetaclasses =
+                allMetaclasses.stream().flatMap(ec -> {
+                            if (!containedMetaclasses.contains(ec) &&
+                                    containedMetaclasses.stream().filter(c -> c.getEAllSuperTypes().contains(ec)).findFirst().isEmpty() &&
+                                    ec.getEAllSuperTypes().stream().filter(containedMetaclasses::contains).findFirst().isEmpty())
+                                return Stream.of(ec);
+                            else
+                                return Stream.empty();
+                        })
+                        .sorted(Comparator.comparing(EClass::getName))
+                        .collect(Collectors.toList());
+
+        // root metaclasses are filtered from the candidate metaclasses as follows:
+        // - the candidate is concrete
+        // - the candidate is abstract and has at least 1 concrete specialization that is also a candidate.
+        final List<EClass> rootMetaclasses =
+                candidateMetaclasses.stream()
+                        .filter(ec -> !ec.isAbstract() || candidateMetaclasses.stream().anyMatch(c -> !c.isAbstract() && c.getEAllSuperTypes().contains(ec)))
+                        .collect(Collectors.toList());
+
+        // TODO: find which interfaces/types are *NOT* contained by any reference
+        // These should have toplevel "all..." query fields.
         interfaceTypes.forEach((c, it) -> {
-            GraphQLFieldDefinition id = lookupIdFieldIncludingSuperclasses(c);
-            if (null != id) {
+            if (rootMetaclasses.contains(c)) {
                 GraphQLFieldDefinition.Builder all = GraphQLFieldDefinition.newFieldDefinition();
-                all.name("all"+pluralize(c.getName()));
+                all.name("all" + pluralize(c.getName()));
                 all.type(GraphQLList.list(it));
                 b.field(all);
-
-                GraphQLFieldDefinition.Builder lookup = GraphQLFieldDefinition.newFieldDefinition();
-                lookup.name(lowercaseInitial(c.getName()));
-                GraphQLArgument.Builder arg = GraphQLArgument.newArgument();
-                arg.name(id.getName());
-                // TODO: id.getType() is an output type; this API requires an input type
-                //arg.type(id.getType());
-                arg.type(GraphQLNonNull.nonNull(GraphQLTypeReference.typeRef("ID")));
-                lookup.argument(arg);
-                lookup.type(it);
-                b.field(lookup);
-
             }
         });
 
-
         objectTypes.forEach((c, ot) -> {
-            GraphQLFieldDefinition id = lookupIdFieldIncludingSuperclasses(c);
-            if (null != id) {
+            if (rootMetaclasses.contains(c)) {
                 GraphQLFieldDefinition.Builder all = GraphQLFieldDefinition.newFieldDefinition();
-                all.name("all"+pluralize(c.getName()));
+                all.name("all" + pluralize(c.getName()));
                 all.type(GraphQLList.list(ot));
                 b.field(all);
-
-                GraphQLFieldDefinition.Builder lookup = GraphQLFieldDefinition.newFieldDefinition();
-                lookup.name(lowercaseInitial(c.getName()));
-                GraphQLArgument.Builder arg = GraphQLArgument.newArgument();
-                arg.name(id.getName());
-                // TODO: id.getType() is an output type; this API requires an input type
-                //arg.type(id.getType());
-                arg.type(GraphQLNonNull.nonNull(GraphQLTypeReference.typeRef("ID")));
-                lookup.argument(arg);
-                lookup.type(ot);
-                b.field(lookup);
             }
         });
 
@@ -400,33 +404,12 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             fb.type(qt);
     }
 
-    private GraphQLFieldDefinition lookupIdFieldIncludingSuperclasses(@NotNull EClass c) {
-        GraphQLFieldDefinition id = idFields.get(c);
-        if (id == null) {
-            Optional<GraphQLFieldDefinition> idSup =
-                    c.getEAllSuperTypes().stream()
-                            .filter(idFields::containsKey)
-                            .flatMap(this::lookupIdField)
-                            .findFirst();
-            id = idSup.orElse(null);
-        }
-        return id;
-    }
-
-    private @NotNull Stream<GraphQLFieldDefinition> lookupIdField(@NotNull EClass c) {
-        GraphQLFieldDefinition id = idFields.get(c);
-        return Stream.ofNullable(id);
-    }
-
-    private @NotNull String lowercaseInitial(@NotNull String n) {
-        return n.substring(0,1).toLowerCase()+n.substring(1);
-    }
     private @NotNull String pluralize(@NotNull String n) {
         if (n.endsWith("x") || n.endsWith("ss"))
-            return n+"es";
+            return n + "es";
         else if (n.endsWith("y"))
-            return n.substring(0, n.length()-1)+"ies";
+            return n.substring(0, n.length() - 1) + "ies";
         else
-            return n+"s";
+            return n + "s";
     }
 }
