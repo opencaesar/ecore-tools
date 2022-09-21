@@ -101,7 +101,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     public EObject caseEEnumLiteral(@NotNull EEnumLiteral l) {
         GraphQLEnumType.Builder b = enumBuilders.get(l.getEEnum());
         if (null != b) {
-            b.value(l.getName(), l.getLiteral());
+            b.value(l.getName().toUpperCase(), l.getLiteral());
         }
         return l;
     }
@@ -179,6 +179,10 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         }
 
         GraphQLOutputType qt = referenceClassifierOutputType(rt);
+//        EAnnotation a = r.getEAnnotation("http://io.opencaesar.oml/graphql");
+//        if (null != a && a.getDetails().containsKey("type")) {
+//            qt = GraphQLTypeReference.typeRef(a.getDetails().get("type"));
+//        }
         updateMultiplicity(fb, r, qt);
 
         GraphQLFieldDefinition f = fb.build();
@@ -204,6 +208,13 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     public EObject caseEOperation(@NotNull EOperation o) {
         EClass c = o.getEContainingClass();
 
+        String fieldName = o.getName();
+        EAnnotation a = o.getEAnnotation("http://io.opencaesar.oml/graphql");
+        if (null != a && a.getDetails().containsKey("replaceAs")) {
+            fieldName = a.getDetails().get("replaceAs");
+            return o;
+        }
+
         EList<ETypeParameter> typeParameters = o.getETypeParameters();
         if (!typeParameters.isEmpty()) {
             LOGGER.warn("EOperation: " + c.getName() + "::" + o.getName() + " -- unsupported case with type parameters!");
@@ -218,10 +229,13 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         }
 
         GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
-        fb.name(o.getName());
+        fb.name(fieldName);
         fb.description("EOperation " + c.getName() + "::" + o.getName());
 
         GraphQLOutputType qt = referenceClassifierOutputType(t);
+//        if (null != a && a.getDetails().containsKey("type")) {
+//            qt = GraphQLTypeReference.typeRef(a.getDetails().get("type"));
+//        }
         updateMultiplicity(fb, o, qt);
 
         for (EParameter p : o.getEParameters()) {
@@ -327,7 +341,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         // For each abstract metaclass, add to its builder all the fields of each of its superclasses.
         interfaceBuilders.forEach((c, b) -> {
             c.getEAllSuperTypes().forEach(sup ->
-                    b.fields(fields.getOrDefault(sup, Collections.emptyList())));
+                    addSpecificFields(b, fields.getOrDefault(sup, Collections.emptyList())));
             GraphQLInterfaceType it = b.build();
             builder.additionalType(it);
             interfaceTypes.put(c, it);
@@ -336,7 +350,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         // For each concrete metaclass, add to its builder all the fields of each of its superclasses.
         objectBuilders.forEach((c, b) -> {
             c.getEAllSuperTypes().forEach(sup ->
-                    b.fields(fields.getOrDefault(sup, Collections.emptyList())));
+                    addSpecificFields(b, fields.getOrDefault(sup, Collections.emptyList())));
             GraphQLObjectType ot = b.build();
             builder.additionalType(ot);
             objectTypes.put(c, ot);
@@ -390,6 +404,22 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         });
 
         builder.query(b);
+    }
+
+    private void addSpecificFields(GraphQLObjectType.Builder b, List<GraphQLFieldDefinition> fs) {
+        for (GraphQLFieldDefinition f : fs) {
+            if (!b.hasField(f.getName())) {
+                b.field(f);
+            }
+        }
+    }
+
+    private void addSpecificFields(GraphQLInterfaceType.Builder b, List<GraphQLFieldDefinition> fs) {
+        for (GraphQLFieldDefinition f : fs) {
+            if (!b.hasField(f.getName())) {
+                b.field(f);
+            }
+        }
     }
 
     private void updateMultiplicity(

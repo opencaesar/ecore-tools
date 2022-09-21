@@ -27,7 +27,11 @@ public class Ecore2GraphQL {
 
     public String convert() {
         final GraphQLSchema schema = builder.build();
-        final SchemaPrinter.Options options = SchemaPrinter.Options.defaultOptions();
+        final SchemaPrinter.Options options =
+                SchemaPrinter.Options
+                        .defaultOptions()
+                        .includeScalarTypes(true)
+                        .includeSchemaDefinition(true);
         final SchemaPrinter printer = new SchemaPrinter(options);
         return printer.print(schema);
     }
