@@ -1,0 +1,7 @@
+ext.title = 'Ecore GraphQL Gradle'
+description = 'A gradle interface to Ecore GraphQL'
+
+dependencies {
+    implementation gradleApi()
+    implementation project (':ecore-graphql')
+}
