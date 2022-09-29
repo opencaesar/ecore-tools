@@ -1,20 +1,53 @@
 package io.opencaesar.ecore.graphql;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
+import org.eclipse.emf.common.util.EList;
+import org.eclipse.emf.ecore.EAnnotation;
+import org.eclipse.emf.ecore.EAttribute;
+import org.eclipse.emf.ecore.EClass;
+import org.eclipse.emf.ecore.EClassifier;
+import org.eclipse.emf.ecore.EDataType;
+import org.eclipse.emf.ecore.EEnum;
+import org.eclipse.emf.ecore.EEnumLiteral;
+import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.EOperation;
+import org.eclipse.emf.ecore.EPackage;
+import org.eclipse.emf.ecore.EParameter;
+import org.eclipse.emf.ecore.EReference;
+import org.eclipse.emf.ecore.ETypeParameter;
+import org.eclipse.emf.ecore.ETypedElement;
+import org.eclipse.emf.ecore.util.EcoreSwitch;
+import org.jetbrains.annotations.NotNull;
+
 import graphql.Assert;
 import graphql.Scalars;
 import graphql.scalar.GraphqlIntCoercing;
 import graphql.scalar.GraphqlStringCoercing;
-import graphql.schema.*;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
-import org.eclipse.emf.common.util.EList;
-import org.eclipse.emf.ecore.*;
-import org.eclipse.emf.ecore.util.EcoreSwitch;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import graphql.schema.GraphQLArgument;
+import graphql.schema.GraphQLEnumType;
+import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.GraphQLInputType;
+import graphql.schema.GraphQLInterfaceType;
+import graphql.schema.GraphQLList;
+import graphql.schema.GraphQLNonNull;
+import graphql.schema.GraphQLObjectType;
+import graphql.schema.GraphQLOutputType;
+import graphql.schema.GraphQLScalarType;
+import graphql.schema.GraphQLSchema;
+import graphql.schema.GraphQLTypeReference;
+import graphql.schema.TypeResolver;
 
 /**
  * Since ECore requires all classifiers within an EPackage to have unique names,

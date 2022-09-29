@@ -1,26 +1,28 @@
 package io.opencaesar.ecore.graphql;
 
-import com.beust.jcommander.IParameterValidator;
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
-import com.google.common.base.Objects;
-import com.google.inject.Injector;
-import org.apache.log4j.*;
-import org.eclipse.emf.common.util.URI;
-import org.eclipse.emf.ecore.EPackage;
-import org.eclipse.emf.ecore.resource.Resource;
-import org.eclipse.emf.ecore.xcore.XcoreStandaloneSetup;
-import org.eclipse.xtext.resource.XtextResourceSet;
-
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
-import java.util.stream.Collectors;
+
+import org.apache.log4j.Appender;
+import org.apache.log4j.AppenderSkeleton;
+import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
+import org.eclipse.emf.common.util.URI;
+import org.eclipse.emf.ecore.resource.Resource;
+import org.eclipse.emf.ecore.xcore.XcoreStandaloneSetup;
+import org.eclipse.xtext.resource.XtextResourceSet;
+
+import com.beust.jcommander.IParameterValidator;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
+import com.google.common.base.Objects;
+import com.google.inject.Injector;
 
 public class Ecore2GraphQLApp {
 
