@@ -15,14 +15,8 @@ dependencies {
 
     implementation "com.graphql-java:graphql-java:${versions.graphQLJava}"
 
-    implementation "org.eclipse.xtext:org.eclipse.xtext.ecore:${versions.xtext}"
-    implementation "org.eclipse.xtext:org.eclipse.xtext.xbase:${versions.xtext}"
-    implementation ("org.eclipse.emf:org.eclipse.emf.ecore.xcore:${versions.xcore}"){
-        exclude group: 'org.antlr', module: 'antlr-runtime'
-    }
-    implementation "org.eclipse.emf:org.eclipse.emf.ecore.xcore.lib:${versions.xcoreLib}"
-    implementation "org.eclipse.emf:org.eclipse.emf.mwe2.runtime:${versions.mwe2}"
-    implementation "org.eclipse.emf:org.eclipse.emf.codegen:${versions.codegen}"
-    implementation "org.eclipse.emf:org.eclipse.emf.codegen.ecore:${versions.codegenEcore}"
-    implementation "org.eclipse.emf:org.eclipse.emf.codegen.ecore.xtext:${versions.codegenEcoreXtext}"
+	implementation ("org.eclipse.emf:org.eclipse.emf.ecore.xcore:${versions.xcore}"){
+		exclude group: 'org.antlr', module: 'antlr-runtime'
+	}
+	implementation "org.antlr:antlr-runtime:3.2"
 }

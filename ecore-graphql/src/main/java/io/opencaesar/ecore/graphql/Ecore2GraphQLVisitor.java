@@ -139,7 +139,8 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         return l;
     }
 
-    @Override
+    @SuppressWarnings("deprecation")
+	@Override
     public EObject caseEClass(@NotNull EClass c) {
         EList<ETypeParameter> typeParameters = c.getETypeParameters();
         if (!typeParameters.isEmpty()) {

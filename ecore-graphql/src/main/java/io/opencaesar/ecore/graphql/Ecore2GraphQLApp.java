@@ -14,15 +14,15 @@ import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.resource.Resource;
+import org.eclipse.emf.ecore.resource.ResourceSet;
+import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xcore.XcoreStandaloneSetup;
-import org.eclipse.xtext.resource.XtextResourceSet;
 
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.google.common.base.Objects;
-import com.google.inject.Injector;
 
 public class Ecore2GraphQLApp {
 
@@ -100,8 +100,8 @@ public class Ecore2GraphQLApp {
         final File inputFolder = new File(this.inputFolderPath);
         final Collection<File> inputFiles = this.collectInputFiles(inputFolder);
 
-        final Injector injector = new XcoreStandaloneSetup().createInjectorAndDoEMFRegistration();
-        final XtextResourceSet inputResourceSet = injector.getInstance(XtextResourceSet.class);
+		XcoreStandaloneSetup.doSetup();
+		final ResourceSet inputResourceSet = new ResourceSetImpl();
 
         final HashMap<File, String> outputFiles = new HashMap<>();
 
