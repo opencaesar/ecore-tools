@@ -1,6 +1,8 @@
 ext.title = 'Ecore Bikeshed Gradle'
 description = 'A gradle interface to Ecore Bikeshed'
 
+apply from: "${rootDir}/gradle/maven-deployment.gradle"
+
 dependencies {
 	implementation gradleApi()
     implementation project (':ecore-bikeshed')

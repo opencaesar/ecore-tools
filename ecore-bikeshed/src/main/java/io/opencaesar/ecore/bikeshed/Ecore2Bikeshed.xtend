@@ -25,7 +25,7 @@ import org.eclipse.emf.ecore.xcore.XAttribute
 import org.eclipse.emf.ecore.xcore.mappings.ToXcoreMapping
 import org.eclipse.emf.ecore.EDataType
 
-class Ecore2Bikeshed {
+package class Ecore2Bikeshed {
 
 	val Resource inputResource 
 	val String outputPath
@@ -248,10 +248,8 @@ class Ecore2Bikeshed {
         val replaced = lines.map[line|
         	var varLine = line
 	        val m = p.matcher(line)
-	        if (m.find()) {// skip the first id (affecting style)
-		        while (m.find) {
-		        	varLine = varLine.replaceAll(m.group(1), '')
-		        }
+	        while (m.find) {
+	        	varLine = varLine.replaceAll(m.group(1), '')
 	        }
 	        varLine
         ].collect(Collectors.toList())

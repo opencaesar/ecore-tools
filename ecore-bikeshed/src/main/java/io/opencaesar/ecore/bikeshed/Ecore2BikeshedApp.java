@@ -14,16 +14,21 @@ import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.resource.Resource;
+import org.eclipse.emf.ecore.resource.ResourceSet;
+import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xcore.XcoreStandaloneSetup;
-import org.eclipse.xtext.resource.XtextResourceSet;
 
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
-import com.google.common.base.Objects;
-import com.google.inject.Injector;
 
+/**
+ * This class implements the Ecore to Bikeshed transformation
+ * 
+ * @author elaasar
+ *
+ */
 @SuppressWarnings("all")
 public class Ecore2BikeshedApp {
 
@@ -33,7 +38,7 @@ public class Ecore2BikeshedApp {
 		validateWith = Ecore2BikeshedApp.InputFolderPath.class,
 		required = true,
 		order = 1)
-	String inputFolderPath = null;
+	private String inputFolderPath = null;
 
 	@Parameter(
 		names = { "--output", "-o" },
@@ -41,27 +46,27 @@ public class Ecore2BikeshedApp {
 		validateWith = Ecore2BikeshedApp.OutputFolderPath.class,
 		required = true,
 		order = 2)
-	String outputFolderPath = ".";
+	private String outputFolderPath = ".";
 
 	@Parameter(
 		names = { "--debug", "-d" },
 		description = "Shows debug logging statements",
 		order = 3)
-	boolean debug;
+	private boolean debug;
 
 	@Parameter(
 		names = { "--help", "-h" },
 		description = "Displays summary of options",
 		help = true,
 		order = 4)
-	boolean help;
+	private boolean help;
 
 	@Parameter(
 		names = { "--version", "-v" },
 		description = "Displays app version",
 		help = true,
 		order = 5)
-	boolean version;
+	private boolean version;
 
 	private final Logger LOGGER = LogManager.getLogger(Ecore2BikeshedApp.class);
 
@@ -109,8 +114,8 @@ public class Ecore2BikeshedApp {
 		final File inputFolder = new File(this.inputFolderPath);
 		final Collection<File> inputFiles = this.collectInputFiles(inputFolder);
 		
-		final Injector injector = new XcoreStandaloneSetup().createInjectorAndDoEMFRegistration();
-		final XtextResourceSet inputResourceSet = injector.getInstance(XtextResourceSet.class);
+		XcoreStandaloneSetup.doSetup();
+		final ResourceSet inputResourceSet = new ResourceSetImpl();
 		
 		final HashMap<File, String> outputFiles = new HashMap<>();
 		
@@ -150,12 +155,12 @@ public class Ecore2BikeshedApp {
 		this.LOGGER.info("=================================================================");
 	}
 
-	public Collection<File> collectInputFiles(final File directory) {
+	private Collection<File> collectInputFiles(final File directory) {
 		final ArrayList<File> files = new ArrayList<File>();
 		for (final File file : directory.listFiles()) {
 			if (file.isFile()) {
 				final String ext = this.getFileExtension(file);
-				if ((Objects.equal(ext, "genmodel") || Objects.equal(ext, "xcore"))) {
+				if ((ext.equals("genmodel") || ext.equals("xcore"))) {
 					files.add(file);
 				}
 			} else if (file.isDirectory()) {
@@ -183,7 +188,10 @@ public class Ecore2BikeshedApp {
     	var version = this.getClass().getPackage().getImplementationVersion();
     	return (version != null) ? version : "<SNAPSHOT>";
 	}
-
+	
+	/**
+	 * Validates the Input Folder Path param 
+	 */
 	public static class InputFolderPath implements IParameterValidator {
 		@Override
 		public void validate(final String name, final String value) throws ParameterException {
@@ -194,6 +202,9 @@ public class Ecore2BikeshedApp {
 		}
 	}
 
+	/**
+	 * Validates the Output Folder Path param 
+	 */
 	public static class OutputFolderPath implements IParameterValidator {
 		@Override
 		public void validate(final String name, final String value) throws ParameterException {

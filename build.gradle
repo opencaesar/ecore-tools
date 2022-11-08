@@ -1,24 +1,15 @@
 subprojects {
 	group = 'io.opencaesar.ecore'
-	version = '0.9.0'
+	version = '0.9.1'
 	
 	ext.versions = [
-		plantuml: '1.2019.0',
 		jcommander: '1.72',
 		log4j: '1.2.17',
 		slf4j: '1.7.30',
 		junit: '4.12',
-	    xtext: '2.23.0',
-	    xcore: '1.15.0',
-	    xcoreLib: '1.5.0',
-	    mwe2: '2.11.3',
-	    codegen: '2.21.0',
-	    codegenEcore: '2.23.0',
-	    codegenEcoreXtext: '1.5.0',
-
-		// https://www.graphql-java.com/documentation/getting-started
-		graphQLJava: '19.1'
-		//graphQLJava: '13.0.0'
+		plantuml: '1.2022.12',
+	    xcore: '1.22.0',
+		graphQLJava: '19.1'// https://www.graphql-java.com/documentation/getting-started
 	]
 
 	repositories {
@@ -29,9 +20,9 @@ subprojects {
 	apply plugin: 'java'
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
-	apply from: "${rootDir}/gradle/maven-deployment.gradle"
 
 	sourceCompatibility = '11'
+	targetCompatibility = '11'
 
 	java {
 	    withJavadocJar()
