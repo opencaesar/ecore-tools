@@ -70,6 +70,9 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     private final Set<EClass> allMetaclasses = new HashSet<>();
     private final Set<EClass> containedMetaclasses = new HashSet<>();
 
+    private final Set<EClass> allSubclassReferences = new HashSet<>();
+    private final Map<EClass, Set<EClass>> allSubclassesMap = new HashMap<>();
+
     private final TypeResolver typeResolver = env -> {
         if (env.getObject() instanceof EObject) {
             EClass eClass = ((EObject) env.getObject()).eClass();
@@ -90,19 +93,19 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     @Override
     public EObject caseEDataType(@NotNull EDataType dt) {
-        EList<ETypeParameter> typeParameters = dt.getETypeParameters();
+        final EList<ETypeParameter> typeParameters = dt.getETypeParameters();
         if (!typeParameters.isEmpty()) {
             LOGGER.warn("EDataType: " + dt.getName() + " -- unsupported case with type parameters!");
             return dt;
         }
 
-        String ic = dt.getInstanceClassName();
+        final String ic = dt.getInstanceClassName();
         if (null == ic) {
             LOGGER.warn("EDataType: " + dt.getName() + " -- unsupported case without EDataType.instanceClassName!");
             return dt;
         }
 
-        GraphQLScalarType.Builder b = GraphQLScalarType.newScalar().name(dt.getName());
+        final GraphQLScalarType.Builder b = GraphQLScalarType.newScalar().name(dt.getName());
 
         // TODO: map Ecore's ExtendedMetadata annotations
         // org.eclipse.emf.ecore.util.EObjectValidator.DynamicEDataTypeValidator.DynamicEDataTypeValidator
@@ -125,14 +128,14 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     @Override
     public EObject caseEEnum(@NotNull EEnum c) {
-        GraphQLEnumType.Builder b = GraphQLEnumType.newEnum().name(c.getName());
+        final GraphQLEnumType.Builder b = GraphQLEnumType.newEnum().name(c.getName());
         enumBuilders.put(c, b);
         return c;
     }
 
     @Override
     public EObject caseEEnumLiteral(@NotNull EEnumLiteral l) {
-        GraphQLEnumType.Builder b = enumBuilders.get(l.getEEnum());
+        final GraphQLEnumType.Builder b = enumBuilders.get(l.getEEnum());
         if (null != b) {
             b.value(l.getName().toUpperCase(), l.getLiteral());
         }
@@ -140,31 +143,45 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     }
 
     @SuppressWarnings("deprecation")
-	@Override
+    @Override
     public EObject caseEClass(@NotNull EClass c) {
-        EList<ETypeParameter> typeParameters = c.getETypeParameters();
+        final EList<ETypeParameter> typeParameters = c.getETypeParameters();
         if (!typeParameters.isEmpty()) {
             LOGGER.warn("EClass: " + c.getName() + " -- unsupported case with type parameters!");
             return c;
         }
 
         if (c.isAbstract()) {
-            GraphQLInterfaceType.Builder b = GraphQLInterfaceType.newInterface().name(c.getName());
+            final GraphQLInterfaceType.Builder b = GraphQLInterfaceType.newInterface().name(c.getName());
             //noinspection deprecation
             b.typeResolver(typeResolver);
             interfaceBuilders.put(c, b);
             LOGGER.debug("EClass: " + c.getName() + " -> interface type");
         } else {
-            GraphQLObjectType.Builder b = GraphQLObjectType.newObject().name(c.getName());
+            final GraphQLObjectType.Builder b = GraphQLObjectType.newObject().name(c.getName());
             c.getEAllSuperTypes().stream()
                     .filter(EClass::isAbstract)
-                    .forEach(i -> b.withInterface(GraphQLTypeReference.typeRef(i.getName())));
+                    .forEach(i ->
+                            b.withInterface(GraphQLTypeReference.typeRef(i.getName())));
             objectBuilders.put(c, b);
             LOGGER.debug("EClass: " + c.getName() + " -> object type");
         }
         fields.put(c, new ArrayList<>());
         allMetaclasses.add(c);
+
+        final EList<EClass> cSups = c.getEAllSuperTypes();
+        cSups.forEach(sup -> addSubclass(sup, c));
         return c;
+    }
+
+    private String inputNameOfAllSubtypesOf(@NotNull EClass c) {
+        return "AllSubtypesOf" + c.getName();
+    }
+
+    private void addSubclass(@NotNull EClass sup, @NotNull EClass sub) {
+        final Set<EClass> subs = allSubclassesMap.getOrDefault(sup, new HashSet<>());
+        subs.add(sub);
+        allSubclassesMap.put(sup, subs);
     }
 
     @Override
@@ -176,6 +193,10 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         fb.description("EAttribute " + c.getName() + "::" + a.getName());
 
         EDataType dt = a.getEAttributeType();
+        if (!packages.contains(dt.getEPackage())) {
+            // Skip any attribute whose type is outside of the metamodel.
+            return a;
+        }
         GraphQLOutputType qt = referenceClassifierOutputType(dt);
         updateMultiplicity(fb, a, qt);
 
@@ -200,38 +221,77 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     @Override
     public EObject caseEReference(@NotNull EReference r) {
-        GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
+
+        final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
         fb.name(r.getName());
 
-        EClass c = r.getEContainingClass();
+        final EClass c = r.getEContainingClass();
         fb.description("EReference " + c.getName() + "::" + r.getName());
 
-        EClass rt = r.getEReferenceType();
+        final EClass rt = r.getEReferenceType();
         if (r.isContainment()) {
             containedMetaclasses.add(rt);
             containedMetaclasses.addAll(rt.getEAllSuperTypes().stream().filter(ec -> !ec.isAbstract()).collect(Collectors.toList()));
         }
 
-        GraphQLOutputType qt = referenceClassifierOutputType(rt);
+        final GraphQLOutputType qt = referenceClassifierOutputType(rt);
 //        EAnnotation a = r.getEAnnotation("http://io.opencaesar.oml/graphql");
 //        if (null != a && a.getDetails().containsKey("type")) {
 //            qt = GraphQLTypeReference.typeRef(a.getDetails().get("type"));
 //        }
         updateMultiplicity(fb, r, qt);
 
-        GraphQLFieldDefinition f = fb.build();
+        // Add filter arguments according to the signature for a collection reference:
+        // collectionAPI (type: <Enum for all subtypes of Type>, filter: String, sort: String, skip: Int, take: Int) [Type]
+        if (r.isMany()) {
+            allSubclassReferences.add(rt);
 
-        List<GraphQLFieldDefinition> fs = fields.get(c);
+            final List<GraphQLArgument> args = new ArrayList<>();
+            final GraphQLArgument.Builder a1 = GraphQLArgument.newArgument();
+            a1.name("type");
+            a1.type(GraphQLTypeReference.typeRef(inputNameOfAllSubtypesOf(rt)));
+            a1.description("Input enum for filtering the results to one of the subclasses of "+rt.getName());
+            args.add(a1.build());
+
+            final GraphQLArgument.Builder a2 = GraphQLArgument.newArgument();
+            a2.name("filter");
+            a2.type(Scalars.GraphQLString);
+            a2.description("AQL boolean expression in the context of `type` that will be the body of a `select(...)` call on the returned collection.");
+            args.add(a2.build());
+
+            final GraphQLArgument.Builder a3 = GraphQLArgument.newArgument();
+            a3.name("sort");
+            a3.type(Scalars.GraphQLString);
+            a3.description("AQL expression in the context of type that will be the body of a sortedBy(...) call on the filtered collection.");
+            args.add(a3.build());
+
+            final GraphQLArgument.Builder a4 = GraphQLArgument.newArgument();
+            a4.name("skip");
+            a4.type(Scalars.GraphQLInt);
+            a4.description("number of elements to skip from the sorted sequence of elements.");
+            args.add(a4.build());
+
+            final GraphQLArgument.Builder a5 = GraphQLArgument.newArgument();
+            a5.name("take");
+            a5.type(Scalars.GraphQLInt);
+            a5.description("max number of elements to return following `skip` number of elements in the sorted sequence of elements.");
+            args.add(a5.build());
+
+            fb.arguments(args);
+        }
+        final GraphQLFieldDefinition f = fb.build();
+
+        final List<GraphQLFieldDefinition> fs = fields.get(c);
         Assert.assertTrue(
                 null != fs,
                 () -> "EReference: " + c.getName() + "::" + r.getName() + " -- missing fields for " + c.getName());
         fs.add(f);
 
-        GraphQLInterfaceType.Builder ib = interfaceBuilders.get(c);
+        final GraphQLInterfaceType.Builder ib = interfaceBuilders.get(c);
         if (null != ib)
             ib.field(f);
 
-        GraphQLObjectType.Builder ob = objectBuilders.get(c);
+        final GraphQLObjectType.Builder ob = objectBuilders.get(c);
         if (null != ob)
             ob.field(f);
 
@@ -240,48 +300,57 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     @Override
     public EObject caseEOperation(@NotNull EOperation o) {
-        EClass c = o.getEContainingClass();
+        final EClass c = o.getEContainingClass();
 
         String fieldName = o.getName();
-        EAnnotation a = o.getEAnnotation("http://io.opencaesar.oml/graphql");
+        final EAnnotation a = o.getEAnnotation("http://io.opencaesar.oml/graphql");
         if (null != a && a.getDetails().containsKey("replaceAs")) {
             fieldName = a.getDetails().get("replaceAs");
-            return o;
         }
 
-        EList<ETypeParameter> typeParameters = o.getETypeParameters();
+        final EList<ETypeParameter> typeParameters = o.getETypeParameters();
         if (!typeParameters.isEmpty()) {
             LOGGER.warn("EOperation: " + c.getName() + "::" + o.getName() + " -- unsupported case with type parameters!");
             return o;
         }
 
-        EClassifier t = o.getEType();
-        EList<ETypeParameter> tps = t.getETypeParameters();
+        final EClassifier t = o.getEType();
+        if (!packages.contains(t.getEPackage())) {
+            // Skip any operation whose return type is outside of the metamodel.
+            return o;
+        }
+
+        final EList<ETypeParameter> tps = t.getETypeParameters();
         if (!tps.isEmpty()) {
             LOGGER.warn("EOperation: " + c.getName() + "::" + o.getName() + " -- unsupported case with return type parameters!");
             return o;
         }
 
-        GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
+        final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
         fb.name(fieldName);
         fb.description("EOperation " + c.getName() + "::" + o.getName());
 
-        GraphQLOutputType qt = referenceClassifierOutputType(t);
+        final GraphQLOutputType qt = referenceClassifierOutputType(t);
 //        if (null != a && a.getDetails().containsKey("type")) {
 //            qt = GraphQLTypeReference.typeRef(a.getDetails().get("type"));
 //        }
         updateMultiplicity(fb, o, qt);
 
         for (EParameter p : o.getEParameters()) {
-            GraphQLArgument.Builder pb = GraphQLArgument.newArgument();
+            final GraphQLArgument.Builder pb = GraphQLArgument.newArgument();
             pb.name(p.getName());
-            EClassifier pt = p.getEType();
-            EList<ETypeParameter> ptps = pt.getETypeParameters();
+            final EClassifier pt = p.getEType();
+            if (!packages.contains(pt.getEPackage())) {
+                // Skip any operation whose return type is outside of the metamodel.
+                return o;
+            }
+
+            final EList<ETypeParameter> ptps = pt.getETypeParameters();
             if (!ptps.isEmpty()) {
                 LOGGER.warn("EOperation: " + c.getName() + "::" + o.getName() + " -- unsupported case with type parameters for parameter: " + p.getName());
                 return o;
             }
-            GraphQLInputType qpt = referenceClassifierInputType(p.getEType());
+            final GraphQLInputType qpt = referenceClassifierInputType(p.getEType());
             if (p.isMany())
                 pb.type(GraphQLList.list(qpt));
             else if (p.isUnique() || 1 == p.getUpperBound())
@@ -292,19 +361,19 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             fb.argument(pb);
         }
 
-        GraphQLFieldDefinition f = fb.build();
+        final GraphQLFieldDefinition f = fb.build();
 
-        List<GraphQLFieldDefinition> fs = fields.get(c);
+        final List<GraphQLFieldDefinition> fs = fields.get(c);
         Assert.assertTrue(
                 null != fs,
                 () -> "EOperation: " + c.getName() + "::" + o.getName() + " -- missing fields for " + c.getName());
         fs.add(f);
 
-        GraphQLInterfaceType.Builder ib = interfaceBuilders.get(c);
+        final GraphQLInterfaceType.Builder ib = interfaceBuilders.get(c);
         if (null != ib)
             ib.field(f);
 
-        GraphQLObjectType.Builder ob = objectBuilders.get(c);
+        final GraphQLObjectType.Builder ob = objectBuilders.get(c);
         if (null != ob)
             ob.field(f);
 
@@ -313,7 +382,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     public @NotNull GraphQLInputType referenceClassifierInputType(@NotNull EClassifier c) {
         GraphQLInputType qt;
-        String n = c.getName();
+        final String n = c.getName();
         switch (n) {
             case "EString":
                 qt = Scalars.GraphQLString;
@@ -337,7 +406,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     public @NotNull GraphQLOutputType referenceClassifierOutputType(@NotNull EClassifier c) {
         GraphQLOutputType qt;
-        String n = c.getName();
+        final String n = c.getName();
         switch (n) {
             case "EString":
                 qt = Scalars.GraphQLString;
@@ -437,6 +506,17 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             }
         });
 
+        for (EClass c : allSubclassReferences) {
+            final List<String> subclasses = new ArrayList<>();
+            allSubclassesMap.getOrDefault(c, new HashSet<>()).forEach(sub -> subclasses.add(sub.getName()));
+            subclasses.add(c.getName());
+            subclasses.sort(String.CASE_INSENSITIVE_ORDER);
+
+            final GraphQLEnumType.Builder cSubtypesEnum = GraphQLEnumType.newEnum();
+            cSubtypesEnum.name(inputNameOfAllSubtypesOf(c));
+            subclasses.forEach(cSubtypesEnum::value);
+            builder.additionalType(cSubtypesEnum.build());
+        }
         builder.query(b);
     }
 
