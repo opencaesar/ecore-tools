@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import graphql.schema.*;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.eclipse.emf.common.util.EList;
@@ -35,19 +36,6 @@ import graphql.Assert;
 import graphql.Scalars;
 import graphql.scalar.GraphqlIntCoercing;
 import graphql.scalar.GraphqlStringCoercing;
-import graphql.schema.GraphQLArgument;
-import graphql.schema.GraphQLEnumType;
-import graphql.schema.GraphQLFieldDefinition;
-import graphql.schema.GraphQLInputType;
-import graphql.schema.GraphQLInterfaceType;
-import graphql.schema.GraphQLList;
-import graphql.schema.GraphQLNonNull;
-import graphql.schema.GraphQLObjectType;
-import graphql.schema.GraphQLOutputType;
-import graphql.schema.GraphQLScalarType;
-import graphql.schema.GraphQLSchema;
-import graphql.schema.GraphQLTypeReference;
-import graphql.schema.TypeResolver;
 
 /**
  * Since ECore requires all classifiers within an EPackage to have unique names,
@@ -70,8 +58,9 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     private final Set<EClass> allMetaclasses = new HashSet<>();
     private final Set<EClass> containedMetaclasses = new HashSet<>();
 
-    private final Set<EClass> allSubclassReferences = new HashSet<>();
+    private final Set<EClassifier> allSubclassReferences = new HashSet<>();
     private final Map<EClass, Set<EClass>> allSubclassesMap = new HashMap<>();
+    private final Map<EClass, Set<EAttribute>> allOrderingsAttributes = new HashMap<>();
 
     private final TypeResolver typeResolver = env -> {
         if (env.getObject() instanceof EObject) {
@@ -169,13 +158,29 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         fields.put(c, new ArrayList<>());
         allMetaclasses.add(c);
 
+        final Set<EAttribute> orderingAttributes = new HashSet<>();
+        c.getEAllAttributes().forEach(a -> {
+            if (acceptEAttribute(a)) {
+                orderingAttributes.add(a);
+            }
+        });
+        allOrderingsAttributes.put(c, orderingAttributes);
+
         final EList<EClass> cSups = c.getEAllSuperTypes();
         cSups.forEach(sup -> addSubclass(sup, c));
         return c;
     }
 
-    private String inputNameOfAllSubtypesOf(@NotNull EClass c) {
+    private String inputNameOfAllSubtypesOf(@NotNull EClassifier c) {
         return "AllSubtypesOf" + c.getName();
+    }
+
+    private boolean hasOrderingAttributes(@NotNull EClassifier c) {
+        return !allOrderingsAttributes.getOrDefault(c, new HashSet<>()).isEmpty();
+    }
+
+    private String inputNameOfAllOrderingAttributesOf(@NotNull EClassifier c) {
+        return "AllOrderingAttributesOf" + c.getName();
     }
 
     private void addSubclass(@NotNull EClass sup, @NotNull EClass sub) {
@@ -184,73 +189,64 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         allSubclassesMap.put(sup, subs);
     }
 
-    @Override
-    public EObject caseEAttribute(@NotNull EAttribute a) {
-        GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
-        fb.name(a.getName());
+    private boolean acceptEAttribute(@NotNull EAttribute a) {
+        final EDataType dt = a.getEAttributeType();
+        return packages.contains(dt.getEPackage());
+    }
 
-        EClass c = a.getEContainingClass();
-        fb.description("EAttribute " + c.getName() + "::" + a.getName());
-
-        EDataType dt = a.getEAttributeType();
-        if (!packages.contains(dt.getEPackage())) {
-            // Skip any attribute whose type is outside of the metamodel.
-            return a;
-        }
-        GraphQLOutputType qt = referenceClassifierOutputType(dt);
-        updateMultiplicity(fb, a, qt);
-
-        GraphQLFieldDefinition f = fb.build();
-
-        List<GraphQLFieldDefinition> fs = fields.get(c);
+    private void addField(EClass c, ETypedElement e, GraphQLFieldDefinition f) {
+        final List<GraphQLFieldDefinition> fs = fields.get(c);
         Assert.assertTrue(
                 null != fs,
-                () -> "EAttribute: " + c.getName() + "::" + a.getName() + " -- missing fields for " + c.getName());
+                () -> "EAttribute: " + c.getName() + "::" + e.getName() + " -- missing fields for " + c.getName());
         fs.add(f);
 
-        GraphQLInterfaceType.Builder ib = interfaceBuilders.get(c);
+        final GraphQLInterfaceType.Builder ib = interfaceBuilders.get(c);
         if (null != ib)
             ib.field(f);
 
-        GraphQLObjectType.Builder ob = objectBuilders.get(c);
+        final GraphQLObjectType.Builder ob = objectBuilders.get(c);
         if (null != ob)
             ob.field(f);
+    }
+    @Override
+    public EObject caseEAttribute(@NotNull EAttribute a) {
+        final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
+        fb.name(a.getName());
+
+        final EClass c = a.getEContainingClass();
+        fb.description("EAttribute " + c.getName() + "::" + a.getName());
+
+        final EDataType dt = a.getEAttributeType();
+        if (!acceptEAttribute(a)) {
+            // Skip any attribute whose type is outside of the metamodel.
+            return a;
+        }
+        final GraphQLOutputType qt = referenceClassifierOutputType(dt);
+        updateMultiplicity(fb, a, qt);
+
+        final GraphQLFieldDefinition f = fb.build();
+
+        addField(c, a, f);
 
         return a;
     }
 
-    @Override
-    public EObject caseEReference(@NotNull EReference r) {
-
-        final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
-        fb.name(r.getName());
-
-        final EClass c = r.getEContainingClass();
-        fb.description("EReference " + c.getName() + "::" + r.getName());
-
-        final EClass rt = r.getEReferenceType();
-        if (r.isContainment()) {
-            containedMetaclasses.add(rt);
-            containedMetaclasses.addAll(rt.getEAllSuperTypes().stream().filter(ec -> !ec.isAbstract()).collect(Collectors.toList()));
-        }
-
-        final GraphQLOutputType qt = referenceClassifierOutputType(rt);
-//        EAnnotation a = r.getEAnnotation("http://io.opencaesar.oml/graphql");
-//        if (null != a && a.getDetails().containsKey("type")) {
-//            qt = GraphQLTypeReference.typeRef(a.getDetails().get("type"));
-//        }
-        updateMultiplicity(fb, r, qt);
+    private void addCollectionFilteringAndSorting(
+            GraphQLFieldDefinition.Builder fb,
+            ETypedElement e,
+            EClassifier t) {
 
         // Add filter arguments according to the signature for a collection reference:
         // collectionAPI (type: <Enum for all subtypes of Type>, filter: String, sort: String, skip: Int, take: Int) [Type]
-        if (r.isMany()) {
-            allSubclassReferences.add(rt);
+        if (e.isMany()) {
+            allSubclassReferences.add(t);
 
             final List<GraphQLArgument> args = new ArrayList<>();
             final GraphQLArgument.Builder a1 = GraphQLArgument.newArgument();
             a1.name("type");
-            a1.type(GraphQLTypeReference.typeRef(inputNameOfAllSubtypesOf(rt)));
-            a1.description("Input enum for filtering the results to one of the subclasses of "+rt.getName());
+            a1.type(GraphQLTypeReference.typeRef(inputNameOfAllSubtypesOf(t)));
+            a1.description("Input enum for filtering the results to one of the subclasses of "+t.getName());
             args.add(a1.build());
 
             final GraphQLArgument.Builder a2 = GraphQLArgument.newArgument();
@@ -277,23 +273,44 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             a5.description("max number of elements to return following `skip` number of elements in the sorted sequence of elements.");
             args.add(a5.build());
 
+            if (hasOrderingAttributes(t)) {
+                final GraphQLArgument.Builder a6 = GraphQLArgument.newArgument();
+                a6.name("orderBy");
+                a6.type(GraphQLTypeReference.typeRef(inputNameOfAllOrderingAttributesOf(t)));
+                a6.description("ordering criteria for the collection results");
+                args.add(a6.build());
+            }
+
             fb.arguments(args);
         }
+    }
+    @Override
+    public EObject caseEReference(@NotNull EReference r) {
+
+        final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
+        fb.name(r.getName());
+
+        final EClass c = r.getEContainingClass();
+        fb.description("EReference " + c.getName() + "::" + r.getName());
+
+        final EClass rt = r.getEReferenceType();
+        if (r.isContainment()) {
+            containedMetaclasses.add(rt);
+            containedMetaclasses.addAll(rt.getEAllSuperTypes().stream().filter(ec -> !ec.isAbstract()).collect(Collectors.toList()));
+        }
+
+        final GraphQLOutputType qt = referenceClassifierOutputType(rt);
+//        EAnnotation a = r.getEAnnotation("http://io.opencaesar.oml/graphql");
+//        if (null != a && a.getDetails().containsKey("type")) {
+//            qt = GraphQLTypeReference.typeRef(a.getDetails().get("type"));
+//        }
+        updateMultiplicity(fb, r, qt);
+
+        addCollectionFilteringAndSorting(fb, r, rt);
+
         final GraphQLFieldDefinition f = fb.build();
 
-        final List<GraphQLFieldDefinition> fs = fields.get(c);
-        Assert.assertTrue(
-                null != fs,
-                () -> "EReference: " + c.getName() + "::" + r.getName() + " -- missing fields for " + c.getName());
-        fs.add(f);
-
-        final GraphQLInterfaceType.Builder ib = interfaceBuilders.get(c);
-        if (null != ib)
-            ib.field(f);
-
-        final GraphQLObjectType.Builder ob = objectBuilders.get(c);
-        if (null != ob)
-            ob.field(f);
+        addField(c, r, f);
 
         return r;
     }
@@ -361,21 +378,11 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             fb.argument(pb);
         }
 
+        addCollectionFilteringAndSorting(fb, o, t);
+
         final GraphQLFieldDefinition f = fb.build();
 
-        final List<GraphQLFieldDefinition> fs = fields.get(c);
-        Assert.assertTrue(
-                null != fs,
-                () -> "EOperation: " + c.getName() + "::" + o.getName() + " -- missing fields for " + c.getName());
-        fs.add(f);
-
-        final GraphQLInterfaceType.Builder ib = interfaceBuilders.get(c);
-        if (null != ib)
-            ib.field(f);
-
-        final GraphQLObjectType.Builder ob = objectBuilders.get(c);
-        if (null != ob)
-            ob.field(f);
+        addField(c, o, f);
 
         return o;
     }
@@ -459,7 +466,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             objectTypes.put(c, ot);
         });
 
-        GraphQLObjectType.Builder b = GraphQLObjectType.newObject();
+        final GraphQLObjectType.Builder b = GraphQLObjectType.newObject();
         b.name("Query");
 
         // Candidate root metaclasses:
@@ -506,7 +513,14 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             }
         });
 
-        for (EClass c : allSubclassReferences) {
+        final GraphQLEnumType.Builder bsort = GraphQLEnumType.newEnum();
+        bsort.name("CollectionSortingCriteria"); // TODO: Need to check that this does not conflict with metamodel names!
+        bsort.value("asc", "Ascending order");
+        bsort.value("desc", "Descending order");
+        final GraphQLEnumType sort = bsort.build();
+        builder.additionalType(sort);
+
+        for (EClassifier c : allSubclassReferences) {
             final List<String> subclasses = new ArrayList<>();
             allSubclassesMap.getOrDefault(c, new HashSet<>()).forEach(sub -> subclasses.add(sub.getName()));
             subclasses.add(c.getName());
@@ -516,6 +530,21 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             cSubtypesEnum.name(inputNameOfAllSubtypesOf(c));
             subclasses.forEach(cSubtypesEnum::value);
             builder.additionalType(cSubtypesEnum.build());
+
+            final Set<EAttribute> orderingAttributes = allOrderingsAttributes.getOrDefault(c, new HashSet<>());
+            if (!orderingAttributes.isEmpty()) {
+                final GraphQLInputObjectType.Builder cOrdering = GraphQLInputObjectType.newInputObject();
+                cOrdering.name(inputNameOfAllOrderingAttributesOf(c));
+                cOrdering.description("Ordering criteria for sorting a collection of " + c.getName() + " elements.");
+                orderingAttributes.forEach(a -> {
+                    final GraphQLInputObjectField.Builder af = GraphQLInputObjectField.newInputObjectField();
+                    af.name(a.getName());
+                    af.type(sort);
+                    cOrdering.field(af);
+                });
+                builder.additionalType(cOrdering.build());
+            }
+
         }
         builder.query(b);
     }
