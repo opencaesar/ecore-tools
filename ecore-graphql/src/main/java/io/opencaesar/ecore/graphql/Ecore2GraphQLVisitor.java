@@ -60,7 +60,6 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     private final Set<EClassifier> allSubclassReferences = new HashSet<>();
     private final Map<EClass, Set<EClass>> allSubclassesMap = new HashMap<>();
-    private final Map<EClass, Set<EAttribute>> allOrderingsAttributes = new HashMap<>();
 
     private final TypeResolver typeResolver = env -> {
         if (env.getObject() instanceof EObject) {
@@ -70,7 +69,18 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         return null;
     };
 
+    private enum Mode {
+        METACLASSES_ONLY,
+        CONTENTS
+    };
+
+    private Mode mode;
+
+    public void contentMode() {
+        this.mode = Mode.CONTENTS;
+    }
     public Ecore2GraphQLVisitor() {
+        this.mode = Mode.METACLASSES_ONLY;
     }
 
     @Override
@@ -137,7 +147,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         final EList<ETypeParameter> typeParameters = c.getETypeParameters();
         if (!typeParameters.isEmpty()) {
             LOGGER.warn("EClass: " + c.getName() + " -- unsupported case with type parameters!");
-            return c;
+            return null;
         }
 
         if (c.isAbstract()) {
@@ -158,29 +168,18 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         fields.put(c, new ArrayList<>());
         allMetaclasses.add(c);
 
-        final Set<EAttribute> orderingAttributes = new HashSet<>();
-        c.getEAllAttributes().forEach(a -> {
-            if (acceptEAttribute(a)) {
-                orderingAttributes.add(a);
-            }
-        });
-        allOrderingsAttributes.put(c, orderingAttributes);
-
         final EList<EClass> cSups = c.getEAllSuperTypes();
         cSups.forEach(sup -> addSubclass(sup, c));
+
         return c;
+    }
+
+    private String paginatedCollectionOf(@NotNull EClassifier c) {
+        return c.getName()+"PaginatedCollection";
     }
 
     private String inputNameOfAllSubtypesOf(@NotNull EClassifier c) {
         return "AllSubtypesOf" + c.getName();
-    }
-
-    private boolean hasOrderingAttributes(@NotNull EClassifier c) {
-        return !allOrderingsAttributes.getOrDefault(c, new HashSet<>()).isEmpty();
-    }
-
-    private String inputNameOfAllOrderingAttributesOf(@NotNull EClassifier c) {
-        return "AllOrderingAttributesOf" + c.getName();
     }
 
     private void addSubclass(@NotNull EClass sup, @NotNull EClass sub) {
@@ -211,6 +210,9 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     }
     @Override
     public EObject caseEAttribute(@NotNull EAttribute a) {
+        if (mode == Mode.METACLASSES_ONLY)
+            return a;
+
         final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
         fb.name(a.getName());
 
@@ -243,11 +245,13 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             allSubclassReferences.add(t);
 
             final List<GraphQLArgument> args = new ArrayList<>();
-            final GraphQLArgument.Builder a1 = GraphQLArgument.newArgument();
-            a1.name("type");
-            a1.type(GraphQLTypeReference.typeRef(inputNameOfAllSubtypesOf(t)));
-            a1.description("Input enum for filtering the results to one of the subclasses of "+t.getName());
-            args.add(a1.build());
+            if (!allSubclassesMap.getOrDefault(t, new HashSet<>()).isEmpty()) {
+                final GraphQLArgument.Builder a1 = GraphQLArgument.newArgument();
+                a1.name("type");
+                a1.type(GraphQLTypeReference.typeRef(inputNameOfAllSubtypesOf(t)));
+                a1.description("Input enum for filtering the results to one of the subclasses of "+t.getName());
+                args.add(a1.build());
+            }
 
             final GraphQLArgument.Builder a2 = GraphQLArgument.newArgument();
             a2.name("filter");
@@ -262,30 +266,32 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             args.add(a3.build());
 
             final GraphQLArgument.Builder a4 = GraphQLArgument.newArgument();
-            a4.name("skip");
-            a4.type(Scalars.GraphQLInt);
-            a4.description("number of elements to skip from the sorted sequence of elements.");
+            a4.name("reverse");
+            a4.type(Scalars.GraphQLBoolean);
+            a4.description("if true, reverse the results of the filtered and sorted collection.");
             args.add(a4.build());
 
             final GraphQLArgument.Builder a5 = GraphQLArgument.newArgument();
-            a5.name("take");
+            a5.name("skip");
             a5.type(Scalars.GraphQLInt);
-            a5.description("max number of elements to return following `skip` number of elements in the sorted sequence of elements.");
+            a5.description("number of elements to skip from the sorted sequence of elements.");
             args.add(a5.build());
 
-            if (hasOrderingAttributes(t)) {
-                final GraphQLArgument.Builder a6 = GraphQLArgument.newArgument();
-                a6.name("orderBy");
-                a6.type(GraphQLTypeReference.typeRef(inputNameOfAllOrderingAttributesOf(t)));
-                a6.description("ordering criteria for the collection results");
-                args.add(a6.build());
-            }
+            final GraphQLArgument.Builder a6 = GraphQLArgument.newArgument();
+            a6.name("take");
+            a6.type(Scalars.GraphQLInt);
+            a6.description("max number of elements to return following `skip` number of elements in the sorted sequence of elements.");
+            args.add(a6.build());
 
             fb.arguments(args);
+
+            fb.type(GraphQLNonNull.nonNull(GraphQLTypeReference.typeRef(paginatedCollectionOf(t))));
         }
     }
     @Override
     public EObject caseEReference(@NotNull EReference r) {
+        if (mode == Mode.METACLASSES_ONLY)
+            return r;
 
         final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
         fb.name(r.getName());
@@ -317,6 +323,8 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     @Override
     public EObject caseEOperation(@NotNull EOperation o) {
+        if (mode == Mode.METACLASSES_ONLY)
+            return o;
         final EClass c = o.getEContainingClass();
 
         String fieldName = o.getName();
@@ -513,38 +521,60 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             }
         });
 
-        final GraphQLEnumType.Builder bsort = GraphQLEnumType.newEnum();
-        bsort.name("CollectionSortingCriteria"); // TODO: Need to check that this does not conflict with metamodel names!
-        bsort.value("asc", "Ascending order");
-        bsort.value("desc", "Descending order");
-        final GraphQLEnumType sort = bsort.build();
-        builder.additionalType(sort);
+        final GraphQLObjectType.Builder bpage = GraphQLObjectType.newObject();
+        bpage.name("PageInfo"); // TODO: Need to check that this does not conflict with metamodel name
+
+        final GraphQLFieldDefinition.Builder f1 = GraphQLFieldDefinition.newFieldDefinition();
+        f1.name("nextSkip");
+        f1.type(Scalars.GraphQLInt);
+        f1.description("The value for the skip argument of a subsequent call if hasNext is true.");
+        bpage.field(f1);
+
+        final GraphQLFieldDefinition.Builder f2 = GraphQLFieldDefinition.newFieldDefinition();
+        f2.name("hasNext");
+        f2.type(GraphQLNonNull.nonNull(Scalars.GraphQLBoolean));
+        f2.description("If true, nextSkip provides the value for the skip argument of a subsequent call.");
+        bpage.field(f2);
+
+        final GraphQLFieldDefinition.Builder f3 = GraphQLFieldDefinition.newFieldDefinition();
+        f3.name("totalCount");
+        f3.type(GraphQLNonNull.nonNull(Scalars.GraphQLInt));
+        f3.description("The total count of elements of the filtered collection; if hasNext=true, the remaining number of elements will be totalCount - nextSkip.");
+        bpage.field(f3);
+
+        final GraphQLObjectType page = bpage.build();
+        builder.additionalType(page);
 
         for (EClassifier c : allSubclassReferences) {
             final List<String> subclasses = new ArrayList<>();
             allSubclassesMap.getOrDefault(c, new HashSet<>()).forEach(sub -> subclasses.add(sub.getName()));
-            subclasses.add(c.getName());
-            subclasses.sort(String.CASE_INSENSITIVE_ORDER);
+            if (!subclasses.isEmpty()) {
+                subclasses.add(c.getName());
+                subclasses.sort(String.CASE_INSENSITIVE_ORDER);
 
-            final GraphQLEnumType.Builder cSubtypesEnum = GraphQLEnumType.newEnum();
-            cSubtypesEnum.name(inputNameOfAllSubtypesOf(c));
-            subclasses.forEach(cSubtypesEnum::value);
-            builder.additionalType(cSubtypesEnum.build());
-
-            final Set<EAttribute> orderingAttributes = allOrderingsAttributes.getOrDefault(c, new HashSet<>());
-            if (!orderingAttributes.isEmpty()) {
-                final GraphQLInputObjectType.Builder cOrdering = GraphQLInputObjectType.newInputObject();
-                cOrdering.name(inputNameOfAllOrderingAttributesOf(c));
-                cOrdering.description("Ordering criteria for sorting a collection of " + c.getName() + " elements.");
-                orderingAttributes.forEach(a -> {
-                    final GraphQLInputObjectField.Builder af = GraphQLInputObjectField.newInputObjectField();
-                    af.name(a.getName());
-                    af.type(sort);
-                    cOrdering.field(af);
-                });
-                builder.additionalType(cOrdering.build());
+                final GraphQLEnumType.Builder cSubtypesEnum = GraphQLEnumType.newEnum();
+                cSubtypesEnum.name(inputNameOfAllSubtypesOf(c));
+                subclasses.forEach(cSubtypesEnum::value);
+                builder.additionalType(cSubtypesEnum.build());
             }
 
+            final GraphQLObjectType.Builder cc = GraphQLObjectType.newObject();
+            cc.name(paginatedCollectionOf(c));
+            cc.description("Paginated Collection of "+c.getName()+" elements.");
+
+            final GraphQLFieldDefinition.Builder c1 = GraphQLFieldDefinition.newFieldDefinition();
+            c1.name("collection");
+            c1.type(GraphQLNonNull.nonNull(GraphQLList.list(GraphQLTypeReference.typeRef(c.getName()))));
+            c1.description("A collection of "+c.getName()+" elements.");
+            cc.field(c1);
+
+            final GraphQLFieldDefinition.Builder c2 = GraphQLFieldDefinition.newFieldDefinition();
+            c2.name("pageInfo");
+            c2.type(GraphQLNonNull.nonNull(GraphQLTypeReference.typeRef("PageInfo")));
+            c2.description("The pagination data for the collection of "+c.getName()+" elements.");
+            cc.field(c2);
+
+            builder.additionalType(cc.build());
         }
         builder.query(b);
     }
