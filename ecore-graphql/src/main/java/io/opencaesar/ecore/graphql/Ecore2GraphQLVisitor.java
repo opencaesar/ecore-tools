@@ -1,5 +1,6 @@
 package io.opencaesar.ecore.graphql;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -11,6 +12,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import graphql.language.BooleanValue;
+import graphql.language.IntValue;
 import graphql.schema.*;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
@@ -42,6 +45,8 @@ import graphql.scalar.GraphqlStringCoercing;
  * this enables referencing the eventual mapping of any EClassifier as a GraphQLTypeReference by name.
  */
 public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
+
+    public static String ECORE_URI = "https://www.eclipse.org/emf/2002/Ecore";
 
     private final Logger LOGGER = LogManager.getLogger(Ecore2GraphQLVisitor.class);
     private final Map<EClassifier, GraphQLScalarType.Builder> scalarBuilders = new HashMap<>();
@@ -269,18 +274,21 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             a4.name("reverse");
             a4.type(Scalars.GraphQLBoolean);
             a4.description("if true, reverse the results of the filtered and sorted collection.");
+            a4.defaultValueLiteral(new BooleanValue(false));
             args.add(a4.build());
 
             final GraphQLArgument.Builder a5 = GraphQLArgument.newArgument();
             a5.name("skip");
             a5.type(Scalars.GraphQLInt);
             a5.description("number of elements to skip from the sorted sequence of elements.");
+            a5.defaultValueLiteral(new IntValue(new BigInteger("0")));
             args.add(a5.build());
 
             final GraphQLArgument.Builder a6 = GraphQLArgument.newArgument();
             a6.name("take");
             a6.type(Scalars.GraphQLInt);
-            a6.description("max number of elements to return following `skip` number of elements in the sorted sequence of elements.");
+            a6.description("max number of elements to return following `skip` number of elements in the sorted sequence of elements; defaults to -1, which means taking all available elements.");
+            a6.defaultValueLiteral(new IntValue(new BigInteger("-1")));
             args.add(a6.build());
 
             fb.arguments(args);
@@ -293,10 +301,23 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         if (mode == Mode.METACLASSES_ONLY)
             return r;
 
+        // Skip this reference if there is an inherited interface getter operation of the same name as this reference.
+        final EClass c = r.getEContainingClass();
+        final String rName = r.getName();
+        final boolean found = c.getEAllOperations().stream().anyMatch(op -> {
+            final EAnnotation a = op.getEAnnotation(ECORE_URI);
+            if (null != a && a.getDetails().containsKey("getterOf")) {
+                return rName.equals(a.getDetails().get("getterOf"));
+            } else
+                return false;
+        });
+        if (found) {
+            LOGGER.warn("skip EReference: " + c.getName() + "::" + r.getName());
+            return r;
+        }
+
         final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
         fb.name(r.getName());
-
-        final EClass c = r.getEContainingClass();
         fb.description("EReference " + c.getName() + "::" + r.getName());
 
         final EClass rt = r.getEReferenceType();
@@ -306,10 +327,6 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         }
 
         final GraphQLOutputType qt = referenceClassifierOutputType(rt);
-//        EAnnotation a = r.getEAnnotation("http://io.opencaesar.oml/graphql");
-//        if (null != a && a.getDetails().containsKey("type")) {
-//            qt = GraphQLTypeReference.typeRef(a.getDetails().get("type"));
-//        }
         updateMultiplicity(fb, r, qt);
 
         addCollectionFilteringAndSorting(fb, r, rt);
@@ -328,9 +345,9 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         final EClass c = o.getEContainingClass();
 
         String fieldName = o.getName();
-        final EAnnotation a = o.getEAnnotation("http://io.opencaesar.oml/graphql");
-        if (null != a && a.getDetails().containsKey("replaceAs")) {
-            fieldName = a.getDetails().get("replaceAs");
+        final EAnnotation a = o.getEAnnotation(ECORE_URI);
+        if (null != a && a.getDetails().containsKey("getterOf")) {
+            fieldName = a.getDetails().get("getterOf");
         }
 
         final EList<ETypeParameter> typeParameters = o.getETypeParameters();
@@ -356,9 +373,6 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         fb.description("EOperation " + c.getName() + "::" + o.getName());
 
         final GraphQLOutputType qt = referenceClassifierOutputType(t);
-//        if (null != a && a.getDetails().containsKey("type")) {
-//            qt = GraphQLTypeReference.typeRef(a.getDetails().get("type"));
-//        }
         updateMultiplicity(fb, o, qt);
 
         for (EParameter p : o.getEParameters()) {
