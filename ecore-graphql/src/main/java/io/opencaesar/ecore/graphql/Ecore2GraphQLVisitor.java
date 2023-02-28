@@ -47,6 +47,7 @@ import graphql.scalar.GraphqlStringCoercing;
 public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
     public static String ECORE_URI = "https://www.eclipse.org/emf/2002/Ecore";
+    public static String OML_ECORE_URI = "https://opencaesar.io/oml/Ecore";
 
     private final Logger LOGGER = LogManager.getLogger(Ecore2GraphQLVisitor.class);
     private final Map<EClassifier, GraphQLScalarType.Builder> scalarBuilders = new HashMap<>();
@@ -54,7 +55,9 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     private final Map<EClass, GraphQLInterfaceType.Builder> interfaceBuilders = new HashMap<>();
     private final Map<EClass, GraphQLObjectType.Builder> objectBuilders = new HashMap<>();
     private final Map<EClass, List<GraphQLFieldDefinition>> fields = new HashMap<>();
-
+    private final Map<EClass, List<GraphQLFieldDefinition>> identifiers = new HashMap<>();
+    private final Map<EClass, List<EReference>> containments = new HashMap<>();
+    private final Set<MetaclassIdentifier2Containment> mutations = new HashSet<>();
     private final Map<EClass, GraphQLInterfaceType> interfaceTypes = new HashMap<>();
     private final Map<EClass, GraphQLObjectType> objectTypes = new HashMap<>();
 
@@ -155,27 +158,30 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             return null;
         }
 
-        if (c.isAbstract()) {
-            final GraphQLInterfaceType.Builder b = GraphQLInterfaceType.newInterface().name(c.getName());
-            //noinspection deprecation
-            b.typeResolver(typeResolver);
-            interfaceBuilders.put(c, b);
-            LOGGER.debug("EClass: " + c.getName() + " -> interface type");
-        } else {
-            final GraphQLObjectType.Builder b = GraphQLObjectType.newObject().name(c.getName());
-            c.getEAllSuperTypes().stream()
-                    .filter(EClass::isAbstract)
-                    .forEach(i ->
-                            b.withInterface(GraphQLTypeReference.typeRef(i.getName())));
-            objectBuilders.put(c, b);
-            LOGGER.debug("EClass: " + c.getName() + " -> object type");
+        if (Mode.METACLASSES_ONLY == mode) {
+            if (c.isAbstract()) {
+                final GraphQLInterfaceType.Builder b = GraphQLInterfaceType.newInterface().name(c.getName());
+                //noinspection deprecation
+                b.typeResolver(typeResolver);
+                interfaceBuilders.put(c, b);
+                LOGGER.debug("EClass: " + c.getName() + " -> interface type");
+            } else {
+                final GraphQLObjectType.Builder b = GraphQLObjectType.newObject().name(c.getName());
+                c.getEAllSuperTypes().stream()
+                        .filter(EClass::isAbstract)
+                        .forEach(i ->
+                                b.withInterface(GraphQLTypeReference.typeRef(i.getName())));
+                objectBuilders.put(c, b);
+                LOGGER.debug("EClass: " + c.getName() + " -> object type");
+            }
+            fields.put(c, new ArrayList<>());
+            identifiers.put(c, new ArrayList<>());
+            containments.put(c, new ArrayList<>());
+            allMetaclasses.add(c);
+
+            final EList<EClass> cSups = c.getEAllSuperTypes();
+            cSups.forEach(sup -> addSubclass(sup, c));
         }
-        fields.put(c, new ArrayList<>());
-        allMetaclasses.add(c);
-
-        final EList<EClass> cSups = c.getEAllSuperTypes();
-        cSups.forEach(sup -> addSubclass(sup, c));
-
         return c;
     }
 
@@ -213,9 +219,37 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         if (null != ob)
             ob.field(f);
     }
+
+    private void addIdentifier(EClass c, GraphQLFieldDefinition f) {
+        final List<GraphQLFieldDefinition> fs = identifiers.get(c);
+        Assert.assertTrue(
+                null != fs,
+                () -> "missing identifiers for " + c.getName());
+        fs.add(f);
+    }
+
+    private List<GraphQLFieldDefinition> collectIdentifiersOf(EClass c) {
+        final List<GraphQLFieldDefinition> ids = new ArrayList<>(identifiers.get(c));
+        c.getEAllSuperTypes().stream().forEach(sup -> {
+            if (identifiers.containsKey(sup)) {
+                final List<GraphQLFieldDefinition> supIds = identifiers.get(sup);
+                ids.addAll(supIds);
+            }
+        });
+        return ids;
+    }
+
+    private void addContainment(EClass c, EReference r) {
+        final List<EReference> cs = containments.get(c);
+        Assert.assertTrue(
+                null != cs,
+                () -> "missing containements for " + c.getName());
+        cs.add(r);
+    }
+
     @Override
     public EObject caseEAttribute(@NotNull EAttribute a) {
-        if (mode == Mode.METACLASSES_ONLY)
+        if (Mode.METACLASSES_ONLY == mode)
             return a;
 
         final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
@@ -235,6 +269,13 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         final GraphQLFieldDefinition f = fb.build();
 
         addField(c, a, f);
+
+        final EAnnotation n = a.getEAnnotation(OML_ECORE_URI);
+        if (null != n && n.getDetails().containsKey("identifier")) {
+            if ("true".equalsIgnoreCase(n.getDetails().get("identifier"))) {
+                addIdentifier(c, f);
+            }
+        }
 
         return a;
     }
@@ -298,12 +339,15 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     }
     @Override
     public EObject caseEReference(@NotNull EReference r) {
-        if (mode == Mode.METACLASSES_ONLY)
-            return r;
 
         // Skip this reference if there is an inherited interface getter operation of the same name as this reference.
         final EClass c = r.getEContainingClass();
         final String rName = r.getName();
+
+        if (r.isContainment()) {
+            LOGGER.warn("EReference containment: " + c.getName() + "::" + r.getName());
+        }
+
         final boolean found = c.getEAllOperations().stream().anyMatch(op -> {
             final EAnnotation a = op.getEAnnotation(ECORE_URI);
             if (null != a && a.getDetails().containsKey("getterOf")) {
@@ -316,24 +360,28 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             return r;
         }
 
-        final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
-        fb.name(r.getName());
-        fb.description("EReference " + c.getName() + "::" + r.getName());
+        if (Mode.METACLASSES_ONLY == mode) {
 
-        final EClass rt = r.getEReferenceType();
-        if (r.isContainment()) {
-            containedMetaclasses.add(rt);
-            containedMetaclasses.addAll(rt.getEAllSuperTypes().stream().filter(ec -> !ec.isAbstract()).collect(Collectors.toList()));
+            final GraphQLFieldDefinition.Builder fb = GraphQLFieldDefinition.newFieldDefinition();
+            fb.name(r.getName());
+            fb.description("EReference " + c.getName() + "::" + r.getName());
+
+            final EClass rt = r.getEReferenceType();
+            if (r.isContainment()) {
+                containedMetaclasses.add(rt);
+                containedMetaclasses.addAll(rt.getEAllSuperTypes().stream().filter(ec -> !ec.isAbstract()).collect(Collectors.toList()));
+                addContainment(c, r);
+            }
+
+            final GraphQLOutputType qt = referenceClassifierOutputType(rt);
+            updateMultiplicity(fb, r, qt);
+
+            addCollectionFilteringAndSorting(fb, r, rt);
+
+            final GraphQLFieldDefinition f = fb.build();
+
+            addField(c, r, f);
         }
-
-        final GraphQLOutputType qt = referenceClassifierOutputType(rt);
-        updateMultiplicity(fb, r, qt);
-
-        addCollectionFilteringAndSorting(fb, r, rt);
-
-        final GraphQLFieldDefinition f = fb.build();
-
-        addField(c, r, f);
 
         return r;
     }
@@ -591,6 +639,26 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             builder.additionalType(cc.build());
         }
         builder.query(b);
+
+        containments.forEach((mc, cs) -> {
+            if (!cs.isEmpty()) {
+                collectIdentifiersOf(mc).forEach(id -> {
+                    mutations.add(new MetaclassIdentifier2Containment(mc, id, cs));
+                });
+            }
+        });
+
+        final GraphQLObjectType.Builder m = GraphQLObjectType.newObject();
+        m.name("Mutation");
+
+        mutations.forEach(mi2c -> {
+            LOGGER.warn(
+                    "mutations for: "+mi2c.getMetaclass().getName()+
+                            "; id:"+mi2c.getIdentifier().getName());
+            mi2c.getContainment().forEach(c -> {
+                LOGGER.warn(" - containment: "+c.getName());
+            });
+        });
     }
 
     private void addSpecificFields(GraphQLObjectType.Builder b, List<GraphQLFieldDefinition> fs) {
