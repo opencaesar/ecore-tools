@@ -32,4 +32,9 @@ public class MetaclassIdentifier2Containment {
     public List<EReference> getContainment() {
         return containment;
     }
+
+
+    public static String getKey(MetaclassIdentifier2Containment mi2c) {
+        return mi2c.metaclass.getName()+"."+mi2c.getIdentifier().getName();
+    }
 }

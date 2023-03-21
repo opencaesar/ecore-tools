@@ -1,44 +1,23 @@
 package io.opencaesar.ecore.graphql;
 
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
+import graphql.Assert;
+import graphql.Scalars;
 import graphql.language.BooleanValue;
 import graphql.language.IntValue;
+import graphql.scalar.GraphqlIntCoercing;
+import graphql.scalar.GraphqlStringCoercing;
 import graphql.schema.*;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.eclipse.emf.common.util.EList;
-import org.eclipse.emf.ecore.EAnnotation;
-import org.eclipse.emf.ecore.EAttribute;
-import org.eclipse.emf.ecore.EClass;
-import org.eclipse.emf.ecore.EClassifier;
-import org.eclipse.emf.ecore.EDataType;
-import org.eclipse.emf.ecore.EEnum;
-import org.eclipse.emf.ecore.EEnumLiteral;
-import org.eclipse.emf.ecore.EObject;
-import org.eclipse.emf.ecore.EOperation;
-import org.eclipse.emf.ecore.EPackage;
-import org.eclipse.emf.ecore.EParameter;
-import org.eclipse.emf.ecore.EReference;
-import org.eclipse.emf.ecore.ETypeParameter;
-import org.eclipse.emf.ecore.ETypedElement;
+import org.eclipse.emf.ecore.*;
 import org.eclipse.emf.ecore.util.EcoreSwitch;
 import org.jetbrains.annotations.NotNull;
 
-import graphql.Assert;
-import graphql.Scalars;
-import graphql.scalar.GraphqlIntCoercing;
-import graphql.scalar.GraphqlStringCoercing;
+import java.math.BigInteger;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Since ECore requires all classifiers within an EPackage to have unique names,
@@ -76,19 +55,16 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         }
         return null;
     };
-
-    private enum Mode {
-        METACLASSES_ONLY,
-        CONTENTS
-    };
-
     private Mode mode;
+
+    ;
+
+    public Ecore2GraphQLVisitor() {
+        this.mode = Mode.METACLASSES_ONLY;
+    }
 
     public void contentMode() {
         this.mode = Mode.CONTENTS;
-    }
-    public Ecore2GraphQLVisitor() {
-        this.mode = Mode.METACLASSES_ONLY;
     }
 
     @Override
@@ -186,7 +162,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
     }
 
     private String paginatedCollectionOf(@NotNull EClassifier c) {
-        return c.getName()+"PaginatedCollection";
+        return c.getName() + "PaginatedCollection";
     }
 
     private String inputNameOfAllSubtypesOf(@NotNull EClassifier c) {
@@ -295,7 +271,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
                 final GraphQLArgument.Builder a1 = GraphQLArgument.newArgument();
                 a1.name("type");
                 a1.type(GraphQLTypeReference.typeRef(inputNameOfAllSubtypesOf(t)));
-                a1.description("Input enum for filtering the results to one of the subclasses of "+t.getName());
+                a1.description("Input enum for filtering the results to one of the subclasses of " + t.getName());
                 args.add(a1.build());
             }
 
@@ -337,6 +313,7 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             fb.type(GraphQLNonNull.nonNull(GraphQLTypeReference.typeRef(paginatedCollectionOf(t))));
         }
     }
+
     @Override
     public EObject caseEReference(@NotNull EReference r) {
 
@@ -567,8 +544,9 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         // These should have toplevel "all..." query fields.
         interfaceTypes.forEach((c, it) -> {
             if (rootMetaclasses.contains(c)) {
-                GraphQLFieldDefinition.Builder all = GraphQLFieldDefinition.newFieldDefinition();
+                final GraphQLFieldDefinition.Builder all = GraphQLFieldDefinition.newFieldDefinition();
                 all.name("all" + pluralize(c.getName()));
+                // TODO: Change this to a paginated collection of c
                 all.type(GraphQLList.list(it));
                 b.field(all);
             }
@@ -576,8 +554,9 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
         objectTypes.forEach((c, ot) -> {
             if (rootMetaclasses.contains(c)) {
-                GraphQLFieldDefinition.Builder all = GraphQLFieldDefinition.newFieldDefinition();
+                final GraphQLFieldDefinition.Builder all = GraphQLFieldDefinition.newFieldDefinition();
                 all.name("all" + pluralize(c.getName()));
+                // TODO: Change this to a paginated collection of c
                 all.type(GraphQLList.list(ot));
                 b.field(all);
             }
@@ -622,18 +601,18 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
 
             final GraphQLObjectType.Builder cc = GraphQLObjectType.newObject();
             cc.name(paginatedCollectionOf(c));
-            cc.description("Paginated Collection of "+c.getName()+" elements.");
+            cc.description("Paginated Collection of " + c.getName() + " elements.");
 
             final GraphQLFieldDefinition.Builder c1 = GraphQLFieldDefinition.newFieldDefinition();
             c1.name("collection");
             c1.type(GraphQLNonNull.nonNull(GraphQLList.list(GraphQLTypeReference.typeRef(c.getName()))));
-            c1.description("A collection of "+c.getName()+" elements.");
+            c1.description("A collection of " + c.getName() + " elements.");
             cc.field(c1);
 
             final GraphQLFieldDefinition.Builder c2 = GraphQLFieldDefinition.newFieldDefinition();
             c2.name("pageInfo");
             c2.type(GraphQLNonNull.nonNull(GraphQLTypeReference.typeRef("PageInfo")));
-            c2.description("The pagination data for the collection of "+c.getName()+" elements.");
+            c2.description("The pagination data for the collection of " + c.getName() + " elements.");
             cc.field(c2);
 
             builder.additionalType(cc.build());
@@ -651,14 +630,62 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
         final GraphQLObjectType.Builder m = GraphQLObjectType.newObject();
         m.name("Mutation");
 
+        final Map<EClass, GraphQLEnumType> concreteContainedSubtypes = new HashMap<>();
+        final Map<EClass, List<EClass>> concreteContainedMetaclasses = new HashMap<>();
         mutations.forEach(mi2c -> {
-            LOGGER.warn(
-                    "mutations for: "+mi2c.getMetaclass().getName()+
-                            "; id:"+mi2c.getIdentifier().getName());
-            mi2c.getContainment().forEach(c -> {
-                LOGGER.warn(" - containment: "+c.getName());
+            mi2c.getContainment().stream().map(EReference::getEReferenceType).forEach(ct -> {
+                final List<EClass> concreteContained = new ArrayList<>();
+                final Set<EClass> ctsub = allSubclassesMap.getOrDefault(ct, new HashSet<>());
+                ctsub.forEach(csub -> {
+                    if (!csub.isAbstract()) {
+                        concreteContained.add(csub);
+                    }
+                });
+                concreteContained.sort(Comparator.comparing(ENamedElement::getName));
+                concreteContainedMetaclasses.put(ct, concreteContained);
             });
         });
+        concreteContainedMetaclasses.forEach((ct, concreteContained) -> {
+            final GraphQLEnumType.Builder cSubtypesEnum = GraphQLEnumType.newEnum();
+            cSubtypesEnum.name("AllConcreteSubtypesOf" + ct.getName());
+            concreteContained.stream().map(EClass::getName).forEach(cSubtypesEnum::value);
+            final GraphQLEnumType subtypes = cSubtypesEnum.build();
+            concreteContainedSubtypes.put(ct, subtypes);
+            builder.additionalType(subtypes);
+        });
+        Arrays.stream(mutations.toArray(new MetaclassIdentifier2Containment[]{})).sorted(Comparator.comparing(MetaclassIdentifier2Containment::getKey)).forEach(mi2c -> {
+            LOGGER.warn(
+                    "mutations for: " + mi2c.getMetaclass().getName() +
+                            "; id:" + mi2c.getIdentifier().getName());
+            mi2c.getContainment().forEach(c -> {
+                final EClass ct = c.getEReferenceType();
+                final GraphQLEnumType subtypes = concreteContainedSubtypes.get(ct);
+
+                final GraphQLFieldDefinition.Builder constructor = GraphQLFieldDefinition.newFieldDefinition();
+                String key = mi2c.getIdentifier().getName().substring(0, 1).toUpperCase() + mi2c.getIdentifier().getName().substring(1);
+                constructor.name(c.getName() + "Of" + mi2c.getMetaclass().getName()+"By"+key);
+                // The result should be the ID of the new instance.
+                constructor.type(Scalars.GraphQLString);
+                constructor.description("Returns the ID of creating one of " + subtypes.getName() + " in the collection " + mi2c.getMetaclass().getName() + "." + c.getName() + " where the container is identified via " + mi2c.getIdentifier().getName());
+                final List<GraphQLArgument> args = new ArrayList<>();
+                final GraphQLArgument.Builder a1 = GraphQLArgument.newArgument();
+                a1.name(mi2c.getIdentifier().getName());
+                a1.type(Scalars.GraphQLString);
+                a1.description("Identifies the " + mi2c.getMetaclass().getName() + " mutation context via its " + mi2c.getIdentifier().getName() + " property.");
+                args.add(a1.build());
+
+                final GraphQLArgument.Builder a2 = GraphQLArgument.newArgument();
+                a2.name(c.getName());
+                a2.type(GraphQLTypeReference.typeRef(subtypes.getName()));
+                a2.description("Specifies one of " + subtypes.getName() + " to create.");
+                args.add(a2.build());
+
+                constructor.arguments(args);
+
+                m.field(constructor);
+            });
+        });
+        builder.mutation(m);
     }
 
     private void addSpecificFields(GraphQLObjectType.Builder b, List<GraphQLFieldDefinition> fs) {
@@ -696,5 +723,10 @@ public class Ecore2GraphQLVisitor extends EcoreSwitch<EObject> {
             return n.substring(0, n.length() - 1) + "ies";
         else
             return n + "s";
+    }
+
+    private enum Mode {
+        METACLASSES_ONLY,
+        CONTENTS
     }
 }
