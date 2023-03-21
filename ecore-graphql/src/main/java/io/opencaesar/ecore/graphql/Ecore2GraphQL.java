@@ -22,6 +22,11 @@ public class Ecore2GraphQL {
             EObject eo = it.next();
             v.doSwitch(eo);
         }
+        v.contentMode();
+        for (TreeIterator<EObject> it = r.getAllContents(); it.hasNext(); ) {
+            EObject eo = it.next();
+            v.doSwitch(eo);
+        }
         v.addBuilds(builder);
     }
 
