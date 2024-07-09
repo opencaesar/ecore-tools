@@ -1,6 +1,6 @@
 subprojects {
 	group = 'io.opencaesar.ecore'
-	version = '0.9.1'
+	version = '1.0.0'
 	
 	ext.versions = [
 		jcommander: '1.72',
@@ -21,8 +21,8 @@ subprojects {
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
 
-	sourceCompatibility = '11'
-	targetCompatibility = '11'
+	sourceCompatibility = '17'
+	targetCompatibility = '17'
 
 	java {
 	    withJavadocJar()
