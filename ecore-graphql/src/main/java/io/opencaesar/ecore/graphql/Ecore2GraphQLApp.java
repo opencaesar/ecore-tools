@@ -1,3 +1,21 @@
+/**
+ * 
+ * Copyright 2019 California Institute of Technology ("Caltech").
+ * U.S. Government sponsorship acknowledged.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ */
 package io.opencaesar.ecore.graphql;
 
 import java.io.BufferedWriter;
@@ -24,6 +42,9 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.google.common.base.Objects;
 
+/**
+ * An app to generate GraphQL interface from Ecore files
+ */
 public class Ecore2GraphQLApp {
 
     @Parameter(
@@ -32,7 +53,7 @@ public class Ecore2GraphQLApp {
             validateWith = InputFolderPath.class,
             required = true,
             order = 1)
-    String inputFolderPath = null;
+    private String inputFolderPath = null;
 
     @Parameter(
             names = {"--output", "-o"},
@@ -40,30 +61,41 @@ public class Ecore2GraphQLApp {
             validateWith = OutputFolderPath.class,
             required = true,
             order = 2)
-    String outputFolderPath = ".";
+    private String outputFolderPath = ".";
 
     @Parameter(
             names = {"--debug", "-d"},
             description = "Shows debug logging statements",
             order = 3)
-    boolean debug;
+    private boolean debug;
 
     @Parameter(
             names = {"--help", "-h"},
             description = "Displays summary of options",
             help = true,
             order = 4)
-    boolean help;
+    private boolean help;
 
     @Parameter(
             names = {"--version", "-v"},
             description = "Displays app version",
             help = true,
             order = 5)
-    boolean version;
+    private boolean version;
 
     private final Logger LOGGER = LogManager.getLogger(Ecore2GraphQLApp.class);
 
+    /**
+     * Default constructor
+     */
+    public Ecore2GraphQLApp() {
+    }
+    
+    /**
+     * The main entry point to the app 
+     * 
+     * @param args The args of the app
+     */
     public static void main(final String... args) {
         final Ecore2GraphQLApp app = new Ecore2GraphQLApp();
         final JCommander builder = JCommander.newBuilder().addObject(app).build();
@@ -89,6 +121,9 @@ public class Ecore2GraphQLApp {
         app.run();
     }
 
+    /**
+     * The run method
+     */
     public void run() {
         LOGGER.info("=================================================================");
         LOGGER.info("                        S T A R T ");
@@ -147,7 +182,7 @@ public class Ecore2GraphQLApp {
         this.LOGGER.info("=================================================================");
     }
 
-    public Collection<File> collectInputFiles(final File directory) {
+    private Collection<File> collectInputFiles(final File directory) {
         final ArrayList<File> files = new ArrayList<>();
         for (final File file : java.util.Objects.requireNonNull(directory.listFiles())) {
             if (file.isFile()) {
@@ -176,13 +211,23 @@ public class Ecore2GraphQLApp {
      *
      * @return version string from build.properties or UNKNOWN
      */
-    public String getAppVersion() {
+    private String getAppVersion() {
         var version = this.getClass().getPackage().getImplementationVersion();
         return (version != null) ? version : "<SNAPSHOT>";
     }
 
+    /**
+     * A validator for input folder path
+     */
     public static class InputFolderPath implements IParameterValidator {
-        @Override
+
+    	/**
+    	 * Default constructor
+    	 */
+    	public InputFolderPath() {
+    	}
+
+    	@Override
         public void validate(final String name, final String value) throws ParameterException {
             final File directory = new File(value).getAbsoluteFile();
             if (!directory.isDirectory()) {
@@ -191,7 +236,17 @@ public class Ecore2GraphQLApp {
         }
     }
 
+    /**
+     * A validator for output folder path
+     */
     public static class OutputFolderPath implements IParameterValidator {
+    	
+    	/**
+    	 * Default constructor
+    	 */
+    	public OutputFolderPath() {
+    	}
+    	
         @Override
         public void validate(final String name, final String value) throws ParameterException {
             final File directory = new File(value).getAbsoluteFile();

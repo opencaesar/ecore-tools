@@ -1,5 +1,9 @@
 plugins { id "org.xtext.xtend" version "2.0.8" }
 
+sourceSets {
+	main { xtendOutputDir = 'src/main/xtend-gen' }
+}
+
 apply plugin: 'application'
 apply from: "${rootDir}/gradle/maven-deployment.gradle"
 
@@ -22,7 +26,4 @@ dependencies {
 	implementation "org.antlr:antlr-runtime:3.2"
 }
 
-sourceSets {
-	main { xtendOutputDir = 'src/main/xtend-gen' }
-	test { xtendOutputDir = 'src/test/xtend-gen' }
-}
+sourcesJar.dependsOn(generateXtext)
