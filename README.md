@@ -12,7 +12,7 @@ A set of tools that work on [Ecore](https://www.eclipse.org/modeling/emf/) model
 ```
       
 ## Build
-Requirements: JDK 11
+Requirements: JDK 17+
 ```
     ./gradlew build
 ```
