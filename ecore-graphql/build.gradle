@@ -1,10 +1,11 @@
-
-apply plugin: 'application'
-
 ext.title = 'Ecore to GraphQL'
 description = 'GraphQL generator for Ecore'
-mainClassName = 'io.opencaesar.ecore.graphql.Ecore2GraphQLApp'
-applicationName = 'ecore2graphql'
+
+apply plugin: 'application'
+application {
+	applicationName = 'ecore2graphql'
+	mainClass = 'io.opencaesar.ecore.graphql.Ecore2GraphQLApp'
+}
 
 dependencies {
     implementation "com.beust:jcommander:${versions.jcommander}"

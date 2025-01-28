@@ -1,16 +1,16 @@
-plugins { id "org.xtext.xtend" version "2.0.8" }
+plugins { id "org.xtext.xtend" version "4.0.0" }
+sourceSets { main.xtend.outputDir = 'src/main/xtend-gen' }
 
-sourceSets {
-	main { xtendOutputDir = 'src/main/xtend-gen' }
-}
-
-apply plugin: 'application'
 apply from: "${rootDir}/gradle/maven-deployment.gradle"
 
 ext.title = 'Ecore to Bikeshed'
 description = 'Bikeshed generator for Ecore'
-mainClassName = 'io.opencaesar.ecore.bikeshed.Ecore2BikeshedApp'
-applicationName = 'ecore2bikeshed'
+
+apply plugin: 'application'
+application {
+	applicationName = 'ecore2bikeshed'
+	mainClass = 'io.opencaesar.ecore.bikeshed.Ecore2BikeshedApp'
+}
 
 dependencies {
 	implementation "com.beust:jcommander:${versions.jcommander}"
