@@ -8,7 +8,7 @@ subprojects {
 		slf4j: '1.7.30',
 		junit: '4.12',
 		plantuml: '1.2022.12',
-	    xcore: '1.22.0',
+	    xcore: '1.33.0',
 		graphQLJava: '19.1'// https://www.graphql-java.com/documentation/getting-started
 	]
 
